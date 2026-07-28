@@ -27,8 +27,10 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { PRODUCTS, MOCK_ADMIN, type Order } from '@/lib/store'
+import { MOCK_ADMIN, type Order } from '@/lib/store'
 import { AdminCoupons, type AdminCoupon } from '@/components/admin-coupons'
+import { AdminProducts, type AdminProduct } from '@/components/admin-products'
+import { AdminSettings, type AdminStoreSettings } from '@/components/admin-settings'
 
 type AdminCustomer = {
   id: string
@@ -39,7 +41,7 @@ type AdminCustomer = {
   status: string
 }
 
-type Tab = 'overview' | 'products' | 'orders' | 'customers' | 'coupons'
+type Tab = 'overview' | 'products' | 'orders' | 'customers' | 'coupons' | 'settings'
 
 const STATUS_STYLES: Record<string, string> = {
   delivered: 'bg-brand/20 text-brand border-0',
@@ -60,21 +62,18 @@ export function AdminDashboard({
   orders,
   customers,
   coupons,
+  products,
+  settings,
   displayDate,
 }: {
   orders: Order[]
   customers: AdminCustomer[]
   coupons: AdminCoupon[]
+  products: AdminProduct[]
+  settings: AdminStoreSettings
   displayDate: string
 }) {
   const [activeTab, setActiveTab] = useState<Tab>('overview')
-  const [productSearch, setProductSearch] = useState('')
-
-  const filteredProducts = PRODUCTS.filter(
-    (p) =>
-      p.name.toLowerCase().includes(productSearch.toLowerCase()) ||
-      p.category.toLowerCase().includes(productSearch.toLowerCase()),
-  )
 
   const totalRevenue = orders.reduce((a, o) => a + o.total, 0)
 
@@ -108,7 +107,14 @@ export function AdminDashboard({
             </button>
           ))}
           <Separator className="bg-border my-2" />
-          <button className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors text-left w-full text-muted-foreground hover:text-foreground hover:bg-secondary/50">
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-colors text-left w-full ${
+              activeTab === 'settings'
+                ? 'bg-secondary text-foreground font-medium'
+                : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+            }`}
+          >
             <Settings className="h-4 w-4 flex-shrink-0" />
             Settings
           </button>
@@ -282,12 +288,12 @@ export function AdminDashboard({
                   </Button>
                 </div>
                 <div className="divide-y divide-border">
-                  {PRODUCTS.slice(0, 5).map((product, i) => (
+                  {products.slice(0, 5).map((product, i) => (
                     <div key={product.id} className="flex items-center gap-4 px-5 py-3">
                       <span className="text-xs text-muted-foreground w-4 shrink-0">{i + 1}</span>
                       <div className="relative w-10 h-10 rounded-md overflow-hidden bg-secondary flex-shrink-0">
                         <Image
-                          src={product.image}
+                          src={product.images[0] ?? '/images/product-1.png'}
                           alt={product.name}
                           fill
                           className="object-cover"
@@ -311,112 +317,9 @@ export function AdminDashboard({
             </div>
           )}
 
-          {/* Products Tab */}
-          {activeTab === 'products' && (
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search products..."
-                    value={productSearch}
-                    onChange={(e) => setProductSearch(e.target.value)}
-                    className="pl-9 bg-secondary border-border text-foreground placeholder:text-muted-foreground"
-                  />
-                </div>
-                <Button
-                  size="sm"
-                  className="bg-foreground text-background hover:bg-foreground/80 gap-2 shrink-0 text-xs"
-                >
-                  <Plus className="h-3.5 w-3.5" /> Add Product
-                </Button>
-              </div>
+          {activeTab === 'products' && <AdminProducts products={products} />}
 
-              <div className="rounded-xl border border-border bg-card overflow-hidden">
-                <div className="grid grid-cols-12 gap-4 px-5 py-3 border-b border-border text-xs uppercase tracking-widest text-muted-foreground">
-                  <span className="col-span-5">Product</span>
-                  <span className="col-span-2">Category</span>
-                  <span className="col-span-2 text-right">Price</span>
-                  <span className="col-span-1 text-center">Stock</span>
-                  <span className="col-span-2 text-right">Actions</span>
-                </div>
-                <div className="divide-y divide-border">
-                  {filteredProducts.map((product) => (
-                    <div
-                      key={product.id}
-                      className="grid grid-cols-12 gap-4 px-5 py-4 items-center"
-                    >
-                      <div className="col-span-5 flex items-center gap-3 min-w-0">
-                        <div className="relative w-10 h-10 rounded-md overflow-hidden bg-secondary flex-shrink-0">
-                          <Image
-                            src={product.image}
-                            alt={product.name}
-                            fill
-                            className="object-cover"
-                            sizes="40px"
-                          />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">
-                            {product.name}
-                          </p>
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <span className="text-xs text-muted-foreground">
-                              ★ {product.rating}
-                            </span>
-                            {product.badge && (
-                              <Badge className="text-xs bg-brand/20 text-brand border-0 py-0 h-4">
-                                {product.badge}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="text-xs text-muted-foreground">{product.category}</span>
-                      </div>
-                      <div className="col-span-2 text-right">
-                        <span className="text-sm font-semibold text-foreground">
-                          ${product.price}
-                        </span>
-                        {product.originalPrice && (
-                          <span className="text-xs text-muted-foreground line-through ml-1">
-                            ${product.originalPrice}
-                          </span>
-                        )}
-                      </div>
-                      <div className="col-span-1 flex justify-center">
-                        <span
-                          className={`text-xs font-medium ${product.inStock ? 'text-brand' : 'text-destructive'}`}
-                        >
-                          {product.inStock ? 'In' : 'Out'}
-                        </span>
-                      </div>
-                      <div className="col-span-2 flex items-center justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground"
-                          asChild
-                        >
-                          <Link href={`/products/${product.id}`}>
-                            <Eye className="h-3.5 w-3.5" />
-                          </Link>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-muted-foreground"
-                        >
-                          <MoreHorizontal className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+          {activeTab === 'settings' && <AdminSettings settings={settings} />}
 
           {/* Orders Tab */}
           {activeTab === 'orders' && (

@@ -4,7 +4,8 @@ import { AdminDashboard } from '@/components/admin-dashboard'
 import { isAdmin } from '@/lib/admin-auth'
 import { db, safeQuery } from '@/lib/db'
 import { coupons as couponsTable, orders as ordersTable } from '@/lib/db/schema'
-import { PRODUCTS, type Order } from '@/lib/store'
+import { getAllProductRows, getStoreSettings, toProduct } from '@/lib/products'
+import { type Order } from '@/lib/store'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,7 +36,7 @@ export default async function AdminPage() {
   }).format(new Date())
   // The dashboard renders with empty collections when the database is missing
   // or unreachable, instead of surfacing an error page to the administrator.
-  const [rows, couponRows] = await Promise.all([
+  const [rows, couponRows, productRows, settings] = await Promise.all([
     safeQuery(
       'admin:orders',
       () => db.select().from(ordersTable).orderBy(desc(ordersTable.createdAt)),
@@ -46,7 +47,10 @@ export default async function AdminPage() {
       () => db.select().from(couponsTable).orderBy(desc(couponsTable.createdAt)),
       [] as (typeof couponsTable.$inferSelect)[],
     ),
+    getAllProductRows(),
+    getStoreSettings(),
   ])
+  const catalog = productRows.map(toProduct)
   const adminOrders: Order[] = rows.map((row) => ({
     id: row.orderNumber,
     date: row.createdAt.toLocaleDateString('en-US', {
@@ -57,7 +61,7 @@ export default async function AdminPage() {
     status: toOrderStatus(row.status),
     total: row.total,
     items: (row.items as StoredItem[]).map((item) => ({
-      product: PRODUCTS.find((product) => product.id === item.productId) ?? {
+      product: catalog.find((product) => product.id === item.productId) ?? {
         id: item.productId,
         name: item.name,
         price: item.price,
@@ -101,6 +105,33 @@ export default async function AdminPage() {
         startsAt: coupon.startsAt?.toISOString() ?? null,
         endsAt: coupon.endsAt?.toISOString() ?? null,
       }))}
+      products={productRows.map((row) => ({
+        id: row.id,
+        slug: row.slug,
+        name: row.name,
+        description: row.description,
+        category: row.category,
+        price: row.price,
+        originalPrice: row.originalPrice,
+        images: row.images,
+        sizes: row.sizes,
+        colors: row.colors,
+        rating: row.rating,
+        reviews: row.reviews,
+        inStock: row.inStock,
+        badge: row.badge,
+        status: row.status,
+        sortOrder: row.sortOrder,
+      }))}
+      settings={{
+        storeName: settings.storeName,
+        tagline: settings.tagline,
+        supportEmail: settings.supportEmail,
+        currency: settings.currency,
+        freeShippingThreshold: settings.freeShippingThreshold,
+        standardShippingRate: settings.standardShippingRate,
+        expressShippingRate: settings.expressShippingRate,
+      }}
       displayDate={displayDate}
     />
   )

@@ -1,17 +1,15 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { ProductDetailClient } from '@/components/product-detail-client'
-import { PRODUCTS } from '@/lib/store'
+import { getProductBySlug, getProductImages } from '@/lib/products'
 
 type ProductPageProps = { params: Promise<{ id: string }> }
 
-export function generateStaticParams() {
-  return PRODUCTS.map(({ id }) => ({ id }))
-}
+export const dynamic = 'force-dynamic'
 
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const { id } = await params
-  const product = PRODUCTS.find((item) => item.id === id)
+  const product = await getProductBySlug(id)
   if (!product) return { title: 'Product Not Found', robots: { index: false, follow: false } }
 
   const description = product.description.slice(0, 160)
@@ -37,14 +35,16 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { id } = await params
-  const product = PRODUCTS.find((item) => item.id === id)
+  const product = await getProductBySlug(id)
   if (!product) notFound()
+
+  const images = await getProductImages(id)
 
   const productJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.name,
-    image: product.image,
+    image: images.length ? images : product.image,
     description: product.description,
     sku: product.id,
     offers: {
@@ -69,7 +69,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd).replace(/</g, '\\u003c') }}
       />
-      <ProductDetailClient product={product} />
+      <ProductDetailClient product={product} gallery={images} />
     </>
   )
 }
