@@ -1,6 +1,7 @@
 'use client'
 
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useMemo, useState, useTransition } from 'react'
+import { addToCart } from '@/app/actions/cart'
 
 type CartContextValue = {
   count: number
@@ -29,4 +30,41 @@ export function CartProvider({
 
 export function useCart() {
   return useContext(CartContext)
+}
+
+export type AddToCartInput = {
+  productId: string
+  quantity?: number
+  size?: string
+  color?: string
+}
+
+/**
+ * Shared "add to cart" behaviour: writes through the server action, keeps the
+ * badge count in sync, and exposes a short-lived `added` flag for button copy.
+ */
+export function useAddToCart() {
+  const { setCount } = useCart()
+  const [pending, startTransition] = useTransition()
+  const [added, setAdded] = useState(false)
+  const [error, setError] = useState('')
+
+  const add = useCallback(
+    (input: AddToCartInput) => {
+      setError('')
+      startTransition(async () => {
+        const result = await addToCart(input)
+        setCount(result.count)
+        if (result.error) {
+          setError(result.error)
+          return
+        }
+        setAdded(true)
+        window.setTimeout(() => setAdded(false), 1800)
+      })
+    },
+    [setCount],
+  )
+
+  return { add, pending, added, error }
 }

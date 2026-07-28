@@ -12,6 +12,7 @@ import {
   Shield,
   Truck,
   RotateCcw,
+  Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -21,30 +22,41 @@ import { Navbar } from '@/components/navbar'
 import { DualPrice } from '@/components/dual-price'
 import { Footer } from '@/components/footer'
 import { ProductCard } from '@/components/product-card'
-import { PRODUCTS } from '@/lib/store'
+import { useAddToCart } from '@/components/cart-provider'
+import { MAX_ITEM_QUANTITY } from '@/lib/checkout'
+import type { Product } from '@/lib/store'
 
-export function ProductDetailClient({ product }: { product: (typeof PRODUCTS)[number] }) {
-  const related = PRODUCTS.filter(
-    (p) => p.id !== product.id && p.category === product.category,
-  ).slice(0, 4)
-  const fallbackRelated = PRODUCTS.filter((p) => p.id !== product.id).slice(0, 4)
+export function ProductDetailClient({
+  product,
+  gallery = [],
+  related = [],
+}: {
+  product: Product
+  gallery?: string[]
+  related?: Product[]
+}) {
+  const images = gallery.length ? gallery : [product.image]
 
-  const [selectedSize, setSelectedSize] = useState<string | null>(product.sizes?.[2] ?? null)
+  const [activeImage, setActiveImage] = useState(0)
+  const [selectedSize, setSelectedSize] = useState<string | null>(
+    product.sizes?.[Math.min(2, product.sizes.length - 1)] ?? null,
+  )
   const [selectedColor, setSelectedColor] = useState<string | null>(product.colors?.[0] ?? null)
   const [quantity, setQuantity] = useState(1)
   const [wishlisted, setWishlisted] = useState(false)
-  const [addedToCart, setAddedToCart] = useState(false)
+  const { add, pending, added: addedToCart, error: cartError } = useAddToCart()
 
-  const handleAddToCart = () => {
-    setAddedToCart(true)
-    setTimeout(() => setAddedToCart(false), 2000)
-  }
-
-  const displayRelated = related.length > 0 ? related : fallbackRelated
+  const handleAddToCart = () =>
+    add({
+      productId: product.id,
+      quantity,
+      size: selectedSize ?? undefined,
+      color: selectedColor ?? undefined,
+    })
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar cartCount={2} />
+      <Navbar />
 
       <main className="flex-1">
         {/* Breadcrumb */}
@@ -65,27 +77,57 @@ export function ProductDetailClient({ product }: { product: (typeof PRODUCTS)[nu
         <div className="mx-auto max-w-7xl px-4 md:px-6 py-10">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-10 lg:gap-16">
             {/* Image */}
-            <div className="relative aspect-square rounded-xl overflow-hidden bg-secondary">
-              <Image
-                src={product.image}
-                alt={product.name}
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, 50vw"
-                priority
-              />
-              {product.badge && (
-                <Badge
-                  className={`absolute top-4 left-4 border-0 uppercase tracking-wide text-xs ${
-                    product.badge === 'Sale'
-                      ? 'bg-brand text-brand-foreground'
-                      : product.badge === 'Sold Out'
-                        ? 'bg-muted text-muted-foreground'
-                        : 'bg-foreground text-background'
-                  }`}
-                >
-                  {product.badge}
-                </Badge>
+            <div className="flex flex-col gap-3">
+              <div className="relative aspect-square rounded-xl overflow-hidden bg-secondary">
+                <Image
+                  src={images[activeImage] ?? product.image}
+                  alt={product.name}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  priority
+                />
+                {product.badge && (
+                  <Badge
+                    className={`absolute top-4 left-4 border-0 uppercase tracking-wide text-xs ${
+                      product.badge === 'Sale'
+                        ? 'bg-brand text-brand-foreground'
+                        : product.badge === 'Sold Out'
+                          ? 'bg-muted text-muted-foreground'
+                          : 'bg-foreground text-background'
+                    }`}
+                  >
+                    {product.badge}
+                  </Badge>
+                )}
+              </div>
+
+              {images.length > 1 && (
+                <div className="flex flex-wrap gap-3">
+                  {images.map((src, index) => (
+                    <button
+                      key={src}
+                      type="button"
+                      onClick={() => setActiveImage(index)}
+                      aria-label={`View image ${index + 1} of ${product.name}`}
+                      aria-current={index === activeImage}
+                      className={`relative h-20 w-20 overflow-hidden rounded-lg border transition-colors ${
+                        index === activeImage
+                          ? 'border-foreground'
+                          : 'border-border hover:border-foreground/40'
+                      }`}
+                    >
+                      <Image
+                        src={src}
+                        alt=""
+                        fill
+                        className="object-cover"
+                        sizes="80px"
+                        aria-hidden="true"
+                      />
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
 
@@ -207,7 +249,7 @@ export function ProductDetailClient({ product }: { product: (typeof PRODUCTS)[nu
                   <button
                     type="button"
                     aria-label="Increase quantity"
-                    onClick={() => setQuantity((q) => q + 1)}
+                    onClick={() => setQuantity((q) => Math.min(MAX_ITEM_QUANTITY, q + 1))}
                     className="w-10 h-10 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
                   >
                     +
@@ -217,10 +259,20 @@ export function ProductDetailClient({ product }: { product: (typeof PRODUCTS)[nu
                 <Button
                   className="flex-1 bg-foreground text-background hover:bg-foreground/80 font-medium h-10"
                   onClick={handleAddToCart}
-                  disabled={!product.inStock}
+                  disabled={!product.inStock || pending}
                 >
-                  <ShoppingBag className="h-4 w-4 mr-2" />
-                  {!product.inStock ? 'Out of Stock' : addedToCart ? 'Added!' : 'Add to Cart'}
+                  {pending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <ShoppingBag className="h-4 w-4 mr-2" />
+                  )}
+                  {!product.inStock
+                    ? 'Out of Stock'
+                    : pending
+                      ? 'Adding'
+                      : addedToCart
+                        ? 'Added!'
+                        : 'Add to Cart'}
                 </Button>
 
                 <Button
@@ -243,6 +295,15 @@ export function ProductDetailClient({ product }: { product: (typeof PRODUCTS)[nu
                   <Share2 className="h-4 w-4" />
                 </Button>
               </div>
+
+              {cartError && (
+                <p
+                  role="status"
+                  className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                >
+                  {cartError}
+                </p>
+              )}
 
               {/* Perks */}
               <div className="grid grid-cols-3 gap-3 mt-1">
@@ -307,13 +368,13 @@ export function ProductDetailClient({ product }: { product: (typeof PRODUCTS)[nu
           </div>
 
           {/* Related */}
-          {displayRelated.length > 0 && (
+          {related.length > 0 && (
             <div className="mt-20">
               <h2 className="font-serif text-2xl font-bold text-foreground mb-6">
                 You May Also Like
               </h2>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-                {displayRelated.map((p) => (
+                {related.map((p) => (
                   <ProductCard key={p.id} product={p} />
                 ))}
               </div>

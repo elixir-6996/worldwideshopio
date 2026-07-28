@@ -69,7 +69,7 @@ export function ProductsBrowser({
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar cartCount={2} />
+      <Navbar />
 
       <main className="flex-1">
         {/* Header */}

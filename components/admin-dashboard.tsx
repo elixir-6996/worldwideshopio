@@ -27,7 +27,8 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { MOCK_ADMIN, type Order } from '@/lib/store'
+import { type Order } from '@/lib/store'
+import { signOutCustomer } from '@/app/actions/customer'
 import { AdminCoupons, type AdminCoupon } from '@/components/admin-coupons'
 import { AdminProducts, type AdminProduct } from '@/components/admin-products'
 import { AdminSettings, type AdminStoreSettings } from '@/components/admin-settings'
@@ -65,6 +66,7 @@ export function AdminDashboard({
   products,
   settings,
   displayDate,
+  adminEmail,
 }: {
   orders: Order[]
   customers: AdminCustomer[]
@@ -72,8 +74,10 @@ export function AdminDashboard({
   products: AdminProduct[]
   settings: AdminStoreSettings
   displayDate: string
+  adminEmail: string
 }) {
   const [activeTab, setActiveTab] = useState<Tab>('overview')
+  const adminInitials = adminEmail.slice(0, 2).toUpperCase()
 
   const totalRevenue = orders.reduce((a, o) => a + o.total, 0)
 
@@ -124,23 +128,24 @@ export function AdminDashboard({
           <div className="flex items-center gap-3">
             <Avatar className="h-8 w-8 border border-border">
               <AvatarFallback className="bg-brand/20 text-brand text-xs font-semibold">
-                {MOCK_ADMIN.name
-                  .split(' ')
-                  .map((n) => n[0])
-                  .join('')}
+                {adminInitials}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-foreground truncate">{MOCK_ADMIN.name}</p>
-              <p className="text-xs text-muted-foreground truncate">{MOCK_ADMIN.email}</p>
+              <p className="text-xs font-medium text-foreground truncate">{settings.storeName}</p>
+              <p className="text-xs text-muted-foreground truncate">{adminEmail}</p>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-            </Button>
+            <form action={signOutCustomer}>
+              <Button
+                type="submit"
+                variant="ghost"
+                size="icon"
+                aria-label="Sign out"
+                className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </Button>
+            </form>
           </div>
         </div>
       </aside>
@@ -175,29 +180,29 @@ export function AdminDashboard({
                     label: 'Total Revenue',
                     value: `$${totalRevenue.toLocaleString()}`,
                     icon: DollarSign,
-                    change: '+12.5%',
+                    change: `avg $${averageOrderValue.toLocaleString()} per order`,
                     up: true,
                   },
                   {
                     label: 'Total Orders',
                     value: orders.length.toString(),
                     icon: ShoppingCart,
-                    change: '+8.2%',
+                    change: `${openOrders} in progress`,
                     up: true,
                   },
                   {
                     label: 'Products',
-                    value: PRODUCTS.length.toString(),
+                    value: products.length.toString(),
                     icon: Package,
-                    change: '+2 this week',
+                    change: `${products.filter((product) => product.status === 'published').length} published`,
                     up: true,
                   },
                   {
                     label: 'Customers',
                     value: customers.length.toString(),
                     icon: Users,
-                    change: '-1.4%',
-                    up: false,
+                    change: `${vipCustomers} VIP`,
+                    up: vipCustomers > 0,
                   },
                 ].map(({ label, value, icon: Icon, change, up }) => (
                   <div key={label} className="rounded-xl border border-border bg-card p-5">

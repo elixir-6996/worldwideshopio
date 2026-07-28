@@ -2,18 +2,20 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { Star, ShoppingBag } from 'lucide-react'
+import { Star, ShoppingBag, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import type { Product } from '@/lib/store'
 import { DualPrice } from '@/components/dual-price'
+import { useAddToCart } from '@/components/cart-provider'
 
 interface ProductCardProps {
   product: Product
-  onAddToCart?: (product: Product) => void
 }
 
-export function ProductCard({ product, onAddToCart }: ProductCardProps) {
+export function ProductCard({ product }: ProductCardProps) {
+  const { add, pending, added } = useAddToCart()
+
   return (
     <div className="group relative flex flex-col bg-card border border-border rounded-lg overflow-hidden hover:border-foreground/20 transition-all duration-300">
       {/* Image */}
@@ -47,13 +49,22 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
             <Button
               size="sm"
               className="w-full bg-foreground/90 text-background hover:bg-foreground backdrop-blur-sm"
+              disabled={pending}
               onClick={(e) => {
                 e.preventDefault()
-                onAddToCart?.(product)
+                add({
+                  productId: product.id,
+                  size: product.sizes?.[0],
+                  color: product.colors?.[0],
+                })
               }}
             >
-              <ShoppingBag className="h-4 w-4 mr-2" />
-              Quick Add
+              {pending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <ShoppingBag className="h-4 w-4 mr-2" />
+              )}
+              {added ? 'Added!' : 'Quick Add'}
             </Button>
           </div>
         )}
