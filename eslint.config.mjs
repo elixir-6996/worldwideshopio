@@ -55,6 +55,8 @@ const config = [
       '**/*.test.{ts,tsx}',
       '**/*.spec.{ts,tsx}',
       'e2e/**',
+      // Operator-facing CLI utilities print progress to stdout by design.
+      'scripts/**',
       'lib/logger.ts',
     ],
     rules: {
