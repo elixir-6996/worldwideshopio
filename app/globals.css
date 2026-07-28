@@ -1,0 +1,404 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: 'Inter', 'Inter Fallback', sans-serif;
+  --font-serif: 'Playfair Display', 'Georgia', serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-gold: var(--gold);
+  --color-gold-muted: var(--gold-muted);
+  --color-glass: var(--glass);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+:root {
+  color-scheme: dark;
+  --background: oklch(0.06 0 0);
+  --foreground: oklch(0.97 0.005 90);
+  --card: oklch(0.1 0 0);
+  --card-foreground: oklch(0.97 0.005 90);
+  --popover: oklch(0.1 0 0);
+  --popover-foreground: oklch(0.97 0.005 90);
+  --primary: oklch(0.8 0.12 80);
+  --primary-foreground: oklch(0.06 0 0);
+  --secondary: oklch(0.14 0 0);
+  --secondary-foreground: oklch(0.97 0.005 90);
+  --muted: oklch(0.14 0 0);
+  --muted-foreground: oklch(0.5 0 0);
+  --accent: oklch(0.14 0 0);
+  --accent-foreground: oklch(0.97 0 0);
+  --destructive: oklch(0.65 0.22 27);
+  --border: oklch(1 0 0 / 8%);
+  --input: oklch(1 0 0 / 10%);
+  --ring: oklch(0.8 0.12 80 / 40%);
+  --gold: oklch(0.8 0.12 80);
+  --gold-muted: oklch(0.6 0.08 75);
+  --glass: oklch(1 0 0 / 5%);
+  --brand: oklch(0.8 0.12 80);
+  --brand-foreground: oklch(0.06 0 0);
+  --radius: 0.5rem;
+  --chart-1: oklch(0.8 0.12 80);
+  --chart-2: oklch(0.65 0.08 75);
+  --chart-3: oklch(0.5 0.05 70);
+  --chart-4: oklch(0.35 0 0);
+  --chart-5: oklch(0.25 0 0);
+  --sidebar: oklch(0.1 0 0);
+  --sidebar-foreground: oklch(0.97 0.005 90);
+  --sidebar-primary: oklch(0.8 0.12 80);
+  --sidebar-primary-foreground: oklch(0.06 0 0);
+  --sidebar-accent: oklch(0.14 0 0);
+  --sidebar-accent-foreground: oklch(0.97 0.005 90);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.8 0.12 80 / 40%);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .glass {
+    background: oklch(1 0 0 / 5%);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid oklch(1 0 0 / 10%);
+  }
+  .glass-strong {
+    background: oklch(1 0 0 / 8%);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid oklch(1 0 0 / 12%);
+  }
+  .gold-text {
+    color: oklch(0.8 0.12 80);
+  }
+  .gold-border {
+    border-color: oklch(0.8 0.12 80 / 40%);
+  }
+  .gold-glow {
+    box-shadow:
+      0 0 30px oklch(0.8 0.12 80 / 20%),
+      0 0 60px oklch(0.8 0.12 80 / 10%);
+  }
+  .text-shimmer {
+    background: linear-gradient(
+      90deg,
+      oklch(0.8 0.12 80),
+      oklch(0.97 0.005 90),
+      oklch(0.8 0.12 80)
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 3s linear infinite;
+  }
+  @keyframes shimmer {
+    0% {
+      background-position: 0% center;
+    }
+    100% {
+      background-position: 200% center;
+    }
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hero-product-card {
+    background: oklch(0.08 0 0 / 72%);
+    backdrop-filter: blur(24px) saturate(125%);
+    -webkit-backdrop-filter: blur(24px) saturate(125%);
+    box-shadow:
+      0 24px 80px oklch(0 0 0 / 55%),
+      inset 0 1px 0 oklch(1 0 0 / 8%);
+    transform-style: preserve-3d;
+  }
+
+  /* ── Mobile hero (< 768px) ───────────────────────────────────────────────
+     The phone hero is laid out at the phone's OWN width instead of rendering
+     the desktop canvas and shrinking it with `transform: scale()`.
+
+     Why the scale approach was replaced: the scale factor is
+     viewport / 896, i.e. ~0.44 on a 390px phone, and it applies to every
+     glyph. That rendered the body copy at ~8px, the eyebrow and stat labels at
+     ~5px and the card titles at ~9px, and it squashed the 48px-tall CTAs to
+     21px — far below the 44px minimum touch target — while the whole hero
+     occupied only ~320px of an 844px screen.
+
+     Because the canvas is now viewport-width, its `@container` breakpoints
+     (`@min-[768px]`) simply stop matching on phones, so every child falls back
+     to its unprefixed class — `text-5xl`, `text-base`, `h-12`, `px-6` — which
+     is a genuine, legible mobile scale at 1:1. The cinematic art direction is
+     kept: the supplied background plate still fills the hero and the model is
+     re-anchored to the bottom as full-bleed art behind the copy.
+
+     Everything here is inside `width < 768px`, so the tablet and desktop
+     composition is untouched. */
+  @media (width < 768px) {
+    /* Fill the first screen below the two sticky bars (~88svh, inside the
+       85-100vh target), but grow instead of clipping if the copy needs more
+       room. */
+    .hero-viewport {
+      min-height: calc(100svh - 6.5rem);
+    }
+
+    .hero-canvas {
+      /* In flow (not `absolute inset-0`), so the section's height follows the
+         real content height and there is no dead letterboxed strip. */
+      position: relative;
+      inset: auto;
+      min-height: calc(100svh - 6.5rem);
+      /* Copy starts at the top; the figure and the card rail occupy the space
+         beneath it. The bottom padding reserves that band so the copy can
+         never collide with the rail, even when the headline wraps to an extra
+         line. */
+      align-items: flex-start;
+      padding-block: 2.25rem 8rem;
+    }
+
+    /* ── Foreground artwork ──────────────────────────────────────────────
+       Bottom-right anchored, which keeps the figure clear of the
+       left-aligned copy column while the platform glow grounds the base of
+       the hero.
+
+       `bottom` sits above the card rail and the height is capped by BOTH the
+       viewport height and an absolute rem ceiling, so:
+         - the full 2:3 artwork is always `object-contain`-fitted, meaning the
+           head and the platform/feet are never cropped,
+         - derived width is height x 2/3, which at these values is always far
+           narrower than the viewport, so the figure cannot overflow
+           horizontally. */
+    .hero-product-stage {
+      left: 72%;
+      right: auto;
+      top: auto;
+      /* Sits ~24px above the top of the card rail (rail: 1.25rem bottom +
+         0.375rem scroll padding + 4.25rem card height). */
+      bottom: 7.75rem;
+      height: min(38svh, 19rem);
+    }
+
+    /* The desktop scrim is a left-to-right falloff because the copy sits in the
+       left column. On a phone the copy spans the full width, so the falloff
+       becomes vertical.
+
+       Deliberately much lighter than a flat blackout: the supplied plate is
+       predominantly near-black with thin glowing gold map lines, so even a
+       ~0.5 veil keeps 12px labels legible while letting the globe's glow and
+       connection lines read clearly through the whole hero. */
+    .hero-scrim {
+      background-image: linear-gradient(
+        to bottom,
+        oklch(0.06 0 0 / 0.82) 0%,
+        oklch(0.06 0 0 / 0.68) 24%,
+        oklch(0.06 0 0 / 0.55) 46%,
+        /* 64-84% is the stats band, which is the one place the copy sits
+           directly over the figure's bright orbit ring — it gets a stronger
+           veil so the 12px labels stay readable, then clears again so the
+           platform and its gold bloom ground the base at full strength. */
+          oklch(0.06 0 0 / 0.62) 66%,
+        oklch(0.06 0 0 / 0.54) 84%,
+        oklch(0.06 0 0 / 0.28) 94%,
+        oklch(0.06 0 0 / 0.22) 100%
+      );
+    }
+
+    /* ── Category cards: compact horizontal rail ─────────────────────────
+       The same three cards as desktop, re-flowed into a single centred row
+       pinned inside the hero's bottom edge — a continuation of the hero, never
+       a separate section.
+
+       The cards keep a fixed intrinsic width instead of stretching to equal
+       thirds, so they read as compact glass chips. If three of them plus the
+       gaps cannot fit (very narrow phones), the rail scrolls horizontally with
+       snap points rather than wrapping to a second line. */
+    .hero-card-rail {
+      left: 1rem;
+      right: 1rem;
+      top: auto;
+      bottom: 1.25rem;
+      width: auto;
+      flex-direction: row;
+      /* Centred while everything fits; `flex-start`-like behaviour resumes
+         automatically once the row overflows and becomes scrollable. */
+      justify-content: center;
+      gap: 0.875rem;
+      transform: none;
+
+      /* Horizontal scroll instead of wrapping. The block padding keeps the
+         cards' drop shadow and hover lift from being clipped by the scroll
+         container. */
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding-block: 0.375rem;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .hero-card-rail::-webkit-scrollbar {
+      display: none;
+    }
+
+    .hero-product-card {
+      /* ~20% shorter and ~25-30% narrower than the previous equal-thirds
+         sizing, keeping the original proportions of the glass chip. */
+      height: 4.25rem;
+      flex: 0 0 auto;
+      width: min(28vw, 6.5rem);
+      min-width: 0;
+      padding: 0.5rem;
+      border-radius: 0.875rem;
+      scroll-snap-align: center;
+    }
+
+    .hero-card-inner {
+      padding: 0.5rem;
+    }
+
+    .hero-card-thumb {
+      top: auto;
+      right: -0.125rem;
+      bottom: 0.125rem;
+      height: 2.5rem;
+      width: 2.5rem;
+      transform: none;
+    }
+
+    .hero-card-eyebrow {
+      font-size: 0.5rem;
+      letter-spacing: 0.14em;
+    }
+
+    /* The title holds a single line inside the narrower chip — "Accessories" is
+       the longest label, so it sets this size. */
+    .hero-card-title {
+      font-size: 0.75rem;
+      white-space: nowrap;
+    }
+
+    /* At a third of a phone's width there is only room for the category
+       itself; the whole card is the tap target, so the redundant inline
+       "Explore Now" label and the corner arrow are dropped rather than
+       crowding the title. */
+    .hero-card-cta,
+    .hero-card-arrow {
+      display: none;
+    }
+
+    /* Would land on top of the card rail, and the trust bar directly below
+       already signals that the page continues. */
+    .hero-scroll-cue {
+      display: none;
+    }
+  }
+
+  /* Large phones / small tablets still on the mobile branch. The headline only
+     needs two lines here, so there is more vertical room for the figure, and
+     the extra width lets it grow without reaching the copy. */
+  @media (600px <= width < 768px) {
+    .hero-product-stage {
+      left: 66%;
+      height: min(52svh, 26rem);
+    }
+  }
+
+  .cta-shine {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+  }
+
+  .cta-shine::after {
+    position: absolute;
+    inset-block: -40%;
+    left: -55%;
+    width: 32%;
+    content: '';
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, oklch(1 0 0 / 42%), transparent);
+    transform: skewX(-18deg);
+    animation: cta-shine 3.8s ease-in-out infinite 1.2s;
+  }
+
+  @keyframes cta-shine {
+    0%,
+    42% {
+      left: -55%;
+    }
+    72%,
+    100% {
+      left: 125%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+
+    .text-shimmer,
+    .cta-shine::after {
+      animation: none;
+    }
+  }
+}

@@ -1,0 +1,6 @@
+# Format + lint staged files (auto-fixes and re-stages via lint-staged).
+pnpm exec lint-staged
+
+# Type-check the whole project. Types are cross-file, so this cannot be
+# scoped to staged files only.
+pnpm run typecheck
