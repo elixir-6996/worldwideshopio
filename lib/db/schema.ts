@@ -1,5 +1,6 @@
 import {
   boolean,
+  doublePrecision,
   integer,
   jsonb,
   pgTable,
@@ -9,6 +10,55 @@ import {
   index,
   uuid,
 } from 'drizzle-orm/pg-core'
+
+/**
+ * Storefront catalog. `slug` is the public identifier used in `/products/[id]`
+ * URLs, so it stays stable even if the row is edited. Money is stored as whole
+ * US dollars to match the rest of the checkout pipeline (orders, coupons).
+ */
+export const products = pgTable(
+  'products',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    slug: text('slug').notNull().unique(),
+    name: text('name').notNull(),
+    description: text('description').notNull().default(''),
+    category: text('category').notNull(),
+    price: integer('price').notNull(),
+    originalPrice: integer('original_price'),
+    images: jsonb('images').$type<string[]>().notNull().default([]),
+    sizes: jsonb('sizes').$type<string[]>().notNull().default([]),
+    colors: jsonb('colors').$type<string[]>().notNull().default([]),
+    rating: doublePrecision('rating').notNull().default(0),
+    reviews: integer('reviews').notNull().default(0),
+    inStock: boolean('in_stock').notNull().default(true),
+    badge: text('badge'),
+    status: text('status').notNull().default('draft'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('products_status_sort_idx').on(table.status, table.sortOrder),
+    index('products_category_idx').on(table.category),
+  ],
+)
+
+/**
+ * Single-row configuration table. The `id` is pinned to 'default' so upserts
+ * never create a second row.
+ */
+export const storeSettings = pgTable('store_settings', {
+  id: text('id').primaryKey().default('default'),
+  storeName: text('store_name').notNull().default('LUXE'),
+  tagline: text('tagline').notNull().default(''),
+  supportEmail: text('support_email').notNull().default(''),
+  currency: text('currency').notNull().default('USD'),
+  freeShippingThreshold: integer('free_shipping_threshold').notNull().default(200),
+  standardShippingRate: integer('standard_shipping_rate').notNull().default(15),
+  expressShippingRate: integer('express_shipping_rate').notNull().default(30),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+})
 
 export const checkoutAddresses = pgTable('checkout_addresses', {
   id: uuid('id').defaultRandom().primaryKey(),
