@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from 'next'
 import { Inter, Playfair_Display } from 'next/font/google'
 import { headers } from 'next/headers'
 import { CurrencyProvider } from '@/components/currency-provider'
+import { CartProvider } from '@/components/cart-provider'
+import { getCartCount } from '@/lib/cart'
 import { getCurrencyConfig, getUsdToInrRate } from '@/lib/currency'
 import './globals.css'
 
@@ -61,13 +63,15 @@ export const viewport: Viewport = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const headerList = await headers()
   const country = headerList.get('x-vercel-ip-country')
-  const usdToInr = await getUsdToInrRate()
+  const [usdToInr, cartCount] = await Promise.all([getUsdToInrRate(), getCartCount()])
   const currencyConfig = getCurrencyConfig(country, usdToInr)
 
   return (
     <html lang="en" className="bg-background">
       <body className="antialiased font-sans min-h-screen">
-        <CurrencyProvider config={currencyConfig}>{children}</CurrencyProvider>
+        <CurrencyProvider config={currencyConfig}>
+          <CartProvider initialCount={cartCount}>{children}</CartProvider>
+        </CurrencyProvider>
       </body>
     </html>
   )

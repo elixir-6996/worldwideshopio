@@ -1,4 +1,4 @@
-import { PRODUCTS, type CartItem } from '@/lib/store'
+import type { CartItem, Product } from '@/lib/store'
 
 export type DeliveryMethod = 'standard' | 'express'
 export type PaymentMethod = 'stripe' | 'razorpay' | 'paypal'
@@ -30,30 +30,94 @@ export type CartPayloadItem = {
   color?: string
 }
 
-export const DEFAULT_CART: CartPayloadItem[] = [
-  { productId: 'p1', quantity: 1, size: 'M', color: 'Black' },
-  { productId: 'p3', quantity: 1 },
-]
+/** Maximum units of a single product allowed in one order. */
+export const MAX_ITEM_QUANTITY = 10
 
-export function hydrateCart(items: CartPayloadItem[]): CartItem[] {
+/** Sales tax applied to the discounted subtotal. */
+export const TAX_RATE = 0.0825
+
+export type ShippingRates = {
+  freeShippingThreshold: number
+  standardShippingRate: number
+  expressShippingRate: number
+}
+
+export const DEFAULT_SHIPPING_RATES: ShippingRates = {
+  freeShippingThreshold: 200,
+  standardShippingRate: 15,
+  expressShippingRate: 30,
+}
+
+/** Clamps a requested quantity into the allowed 1…MAX_ITEM_QUANTITY range. */
+export function clampQuantity(quantity: number): number {
+  if (!Number.isFinite(quantity)) return 1
+  return Math.max(1, Math.min(Math.trunc(quantity), MAX_ITEM_QUANTITY))
+}
+
+/**
+ * Joins persisted cart lines with catalog products. Lines referencing products
+ * that no longer exist (or were unpublished) are dropped.
+ */
+export function hydrateCart(items: CartPayloadItem[], catalog: Product[]): CartItem[] {
+  const byId = new Map(catalog.map((product) => [product.id, product]))
   return items.flatMap((item) => {
-    const product = PRODUCTS.find((candidate) => candidate.id === item.productId)
-    return product ? [{ ...item, product, quantity: Math.max(1, Math.min(item.quantity, 10)) }] : []
+    const product = byId.get(item.productId)
+    if (!product) return []
+    return [
+      {
+        product,
+        quantity: clampQuantity(item.quantity),
+        size: item.size,
+        color: item.color,
+      },
+    ]
   })
 }
 
+export function cartSubtotal(cart: CartItem[]): number {
+  return cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
+}
+
+export function cartCount(cart: Pick<CartItem, 'quantity'>[]): number {
+  return cart.reduce((sum, item) => sum + item.quantity, 0)
+}
+
+/** Base shipping cost before any coupon savings are applied. */
+export function baseShipping(
+  subtotal: number,
+  delivery: DeliveryMethod,
+  rates: ShippingRates = DEFAULT_SHIPPING_RATES,
+): number {
+  if (delivery === 'express') return rates.expressShippingRate
+  return subtotal >= rates.freeShippingThreshold ? 0 : rates.standardShippingRate
+}
+
+export type CheckoutTotals = {
+  subtotal: number
+  discount: number
+  shipping: number
+  shippingSavings: number
+  tax: number
+  total: number
+}
+
+/**
+ * Computes order totals from a hydrated cart. Discounts are capped at the
+ * subtotal, shipping savings at the base shipping cost, and tax is charged on
+ * the discounted subtotal.
+ */
 export function calculateTotals(
-  items: CartPayloadItem[],
+  cart: CartItem[],
   delivery: DeliveryMethod,
   savings: { discount?: number; shippingSavings?: number } = {},
-) {
-  const cart = hydrateCart(items)
-  const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
+  rates: ShippingRates = DEFAULT_SHIPPING_RATES,
+): CheckoutTotals {
+  const subtotal = cartSubtotal(cart)
   const discount = Math.min(subtotal, Math.max(0, savings.discount ?? 0))
-  const baseShipping = delivery === 'express' ? 30 : subtotal > 200 ? 0 : 15
-  const shippingSavings = Math.min(baseShipping, Math.max(0, savings.shippingSavings ?? 0))
-  const shipping = baseShipping - shippingSavings
-  const tax = Math.round((subtotal - discount) * 0.0825)
+  const base = baseShipping(subtotal, delivery, rates)
+  const shippingSavings = Math.min(base, Math.max(0, savings.shippingSavings ?? 0))
+  const shipping = base - shippingSavings
+  const tax = Math.round((subtotal - discount) * TAX_RATE)
   return {
     subtotal,
     discount,

@@ -32,6 +32,7 @@ import type { LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { useCart } from '@/components/cart-provider'
 import { motion, AnimatePresence } from 'framer-motion'
 
 /* ─── Types ─────────────────────────────────────────────────────── */
@@ -538,11 +539,13 @@ interface NavbarProps {
 }
 
 export function Navbar({
-  cartCount = 0,
+  cartCount,
   wishlistCount = 0,
   isLoggedIn = false,
   isAdmin = false,
 }: NavbarProps) {
+  const { count: contextCartCount } = useCart()
+  const cartBadge = cartCount ?? contextCartCount
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
   const [scrolled, setScrolled] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -740,12 +743,14 @@ export function Navbar({
             >
               <Link href="/cart">
                 <ShoppingBag className="h-4.5 w-4.5" />
-                {cartCount > 0 && (
+                {cartBadge > 0 && (
                   <Badge className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 flex items-center justify-center text-[10px] bg-primary text-primary-foreground border-0">
-                    {cartCount}
+                    {cartBadge}
                   </Badge>
                 )}
-                <span className="sr-only">Cart</span>
+                <span className="sr-only">
+                  Cart{cartBadge > 0 ? ` (${cartBadge} items)` : ''}
+                </span>
               </Link>
             </Button>
 
