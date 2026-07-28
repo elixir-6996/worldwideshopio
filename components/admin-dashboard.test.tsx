@@ -13,6 +13,10 @@ vi.mock('@/app/actions/customer', () => ({
 vi.mock('@/app/actions/products', () => ({
   saveProduct: vi.fn(),
   deleteProduct: vi.fn(),
+  setProductStatus: vi.fn(),
+  reorderProducts: vi.fn(),
+  uploadProductImage: vi.fn(),
+  deleteProductImage: vi.fn(),
   saveStoreSettings: vi.fn(),
 }))
 
