@@ -6,7 +6,27 @@ vi.mock('@/app/actions/coupons', () => ({
   deleteCoupon: vi.fn(),
 }))
 
+vi.mock('@/app/actions/products', () => ({
+  saveProduct: vi.fn(),
+  deleteProduct: vi.fn(),
+  setProductStatus: vi.fn(),
+  reorderProducts: vi.fn(),
+  uploadProductImage: vi.fn(),
+  deleteProductImage: vi.fn(),
+  saveStoreSettings: vi.fn(),
+}))
+
 import { AdminDashboard } from '@/components/admin-dashboard'
+
+const SETTINGS = {
+  storeName: 'LUXE',
+  tagline: 'Modern essentials',
+  supportEmail: 'support@luxe.demo',
+  currency: 'USD',
+  freeShippingThreshold: 200,
+  standardShippingRate: 15,
+  expressShippingRate: 30,
+}
 
 describe('AdminDashboard', () => {
   it('renders the stable date supplied by the server', () => {
@@ -15,6 +35,8 @@ describe('AdminDashboard', () => {
         orders={[]}
         customers={[]}
         coupons={[]}
+        products={[]}
+        settings={SETTINGS}
         displayDate="Thursday, July 23, 2026"
       />,
     )

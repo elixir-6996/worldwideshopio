@@ -187,7 +187,7 @@ export function AdminDashboard({
                   },
                   {
                     label: 'Products',
-                    value: PRODUCTS.length.toString(),
+                    value: products.length.toString(),
                     icon: Package,
                     change: '+2 this week',
                     up: true,
