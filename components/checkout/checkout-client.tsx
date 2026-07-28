@@ -236,7 +236,9 @@ export function CheckoutClient({
                   couponMessage={couponMessage}
                 />
               )}
-              {step === 2 && <PaymentStep value={payment} onChange={setPayment} />}
+              {step === 2 && (
+                <PaymentStep value={payment} onChange={setPayment} stripeLive={STRIPE_CONFIGURED} />
+              )}
               {step === 3 && (
                 <div className="flex flex-col gap-5">
                   <ReviewStep

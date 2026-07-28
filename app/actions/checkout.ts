@@ -222,10 +222,17 @@ export async function completeOrder(detailsInput: CheckoutDetails, paymentRefere
   return { orderNumber, paymentStatus: 'paid' }
 }
 
-/** Empties the cookie cart and refreshes cart-aware routes after a paid order. */
+/**
+ * Empties the cookie cart and refreshes cart-aware routes after a paid order.
+ *
+ * `/checkout` is deliberately NOT revalidated: the shopper is still on that
+ * route, and re-rendering it with a now-empty cart would replace the client
+ * component (and its order confirmation screen) with the "cart is empty"
+ * state before the order number could be read. The checkout page is
+ * `force-dynamic`, so it re-reads the cleared cart on the next visit anyway.
+ */
 async function finishOrder() {
   await writeCartItems([])
   revalidatePath('/cart')
-  revalidatePath('/checkout')
   revalidatePath('/dashboard')
 }

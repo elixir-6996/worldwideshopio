@@ -7,33 +7,26 @@ import type { PaymentMethod } from '@/lib/checkout'
 const METHODS: {
   value: PaymentMethod
   name: string
-  description: string
-  live: boolean
   icon: React.ElementType
 }[] = [
-  {
-    value: 'stripe',
-    name: 'Stripe',
-    description: 'Secure card payment',
-    live: true,
-    icon: CreditCard,
-  },
-  {
-    value: 'razorpay',
-    name: 'Razorpay',
-    description: 'Demo payment flow',
-    live: false,
-    icon: Wallet,
-  },
-  { value: 'paypal', name: 'PayPal', description: 'Demo payment flow', live: false, icon: Wallet },
+  { value: 'stripe', name: 'Stripe', icon: CreditCard },
+  { value: 'razorpay', name: 'Razorpay', icon: Wallet },
+  { value: 'paypal', name: 'PayPal', icon: Wallet },
 ]
 
 export function PaymentStep({
   value,
   onChange,
+  stripeLive = false,
 }: {
   value: PaymentMethod
   onChange: (value: PaymentMethod) => void
+  /**
+   * True only when a Stripe publishable key is present. Without it the Stripe
+   * option falls back to the same demo settlement path as the other methods,
+   * so it must not advertise itself as live.
+   */
+  stripeLive?: boolean
 }) {
   return (
     <div className="flex flex-col gap-5">
@@ -50,6 +43,8 @@ export function PaymentStep({
         {METHODS.map((method) => {
           const active = method.value === value
           const Icon = method.icon
+          const live = method.value === 'stripe' && stripeLive
+          const description = live ? 'Secure card payment' : 'Demo payment flow'
           return (
             <button
               key={method.value}
@@ -70,14 +65,12 @@ export function PaymentStep({
                 <span className="flex items-center gap-2 font-medium text-foreground">
                   {method.name}
                   <span
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${method.live ? 'bg-brand/15 text-brand' : 'bg-muted text-muted-foreground'}`}
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${live ? 'bg-brand/15 text-brand' : 'bg-muted text-muted-foreground'}`}
                   >
-                    {method.live ? 'Live' : 'Demo'}
+                    {live ? 'Live' : 'Demo'}
                   </span>
                 </span>
-                <span className="mt-1 block text-xs text-muted-foreground">
-                  {method.description}
-                </span>
+                <span className="mt-1 block text-xs text-muted-foreground">{description}</span>
               </span>
               {active && <Check className="h-5 w-5 text-brand" />}
             </button>
