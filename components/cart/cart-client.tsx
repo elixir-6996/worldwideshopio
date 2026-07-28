@@ -40,7 +40,7 @@ export function CartClient({ cart, rates }: { cart: CartItem[]; rates: ShippingR
   const { setCount } = useCart()
   const [pending, startTransition] = useTransition()
   const [promoCode, setPromoCode] = useState('')
-  const [appliedPromo, setAppliedPromo] = useState<AppliedPromo | null>(null)
+  const [promo, setPromo] = useState<{ subtotal: number; value: AppliedPromo } | null>(null)
   const [promoError, setPromoError] = useState('')
 
   const subtotal = useMemo(() => cartSubtotal(cart), [cart])
@@ -50,10 +50,9 @@ export function CartClient({ cart, rates }: { cart: CartItem[]; rates: ShippingR
     setCount(cartCount(cart))
   }, [cart, setCount])
 
-  // A coupon validated against an older subtotal must not survive cart edits.
-  useEffect(() => {
-    setAppliedPromo(null)
-  }, [subtotal])
+  // A coupon validated against an older subtotal must not survive cart edits, so
+  // it is derived from the subtotal it was priced against rather than reset in an effect.
+  const appliedPromo = promo && promo.subtotal === subtotal ? promo.value : null
 
   const run = (action: () => Promise<{ count: number; error?: string }>) => {
     startTransition(async () => {
@@ -77,15 +76,18 @@ export function CartClient({ cart, rates }: { cart: CartItem[]; rates: ShippingR
   const applyPromo = async () => {
     const result = await validateCoupon({ code: promoCode, subtotal, shipping: shippingBase })
     if (result.valid && result.code) {
-      setAppliedPromo({
-        code: result.code,
-        message: result.message,
-        discount: result.discount,
-        shippingSavings: result.shippingSavings,
+      setPromo({
+        subtotal,
+        value: {
+          code: result.code,
+          message: result.message,
+          discount: result.discount,
+          shippingSavings: result.shippingSavings,
+        },
       })
       setPromoError('')
     } else {
-      setAppliedPromo(null)
+      setPromo(null)
       setPromoError(result.message)
     }
   }
@@ -157,7 +159,9 @@ export function CartClient({ cart, rates }: { cart: CartItem[]; rates: ShippingR
                       >
                         {item.product.name}
                       </Link>
-                      <p className="text-xs text-muted-foreground mt-0.5">{item.product.category}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {item.product.category}
+                      </p>
                       <div className="flex items-center gap-2 mt-1">
                         {item.size && (
                           <Badge
@@ -326,9 +330,7 @@ export function CartClient({ cart, rates }: { cart: CartItem[]; rates: ShippingR
                       shipping
                     </p>
                   )}
-                  <p className="text-xs text-muted-foreground">
-                    Taxes are calculated at checkout.
-                  </p>
+                  <p className="text-xs text-muted-foreground">Taxes are calculated at checkout.</p>
                 </div>
 
                 <Separator className="bg-border my-5" />

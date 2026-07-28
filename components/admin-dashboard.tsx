@@ -13,21 +13,18 @@ import {
   TrendingUp,
   TrendingDown,
   DollarSign,
-  Eye,
   ChevronRight,
   Plus,
-  Search,
-  MoreHorizontal,
   ArrowUpRight,
   TicketPercent,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { signOutCustomer } from '@/app/actions/customer'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { MOCK_ADMIN, type Order } from '@/lib/store'
+import { type Order } from '@/lib/store'
 import { AdminCoupons, type AdminCoupon } from '@/components/admin-coupons'
 import { AdminProducts, type AdminProduct } from '@/components/admin-products'
 import { AdminSettings, type AdminStoreSettings } from '@/components/admin-settings'
@@ -58,12 +55,21 @@ const NAV_ITEMS: { icon: LucideIcon; label: string; tab: Tab }[] = [
   { icon: TicketPercent, label: 'Coupons', tab: 'coupons' },
 ]
 
+/** Derives display initials from an email address such as `admin@luxe.demo`. */
+function initialsFromEmail(email: string) {
+  const [local = ''] = email.split('@')
+  const parts = local.split(/[._-]+/).filter(Boolean)
+  const letters = (parts.length > 1 ? [parts[0], parts[1]] : [local]).map((part) => part[0] ?? '')
+  return letters.join('').slice(0, 2).toUpperCase() || 'AD'
+}
+
 export function AdminDashboard({
   orders,
   customers,
   coupons,
   products,
   settings,
+  adminEmail = '',
   displayDate,
 }: {
   orders: Order[]
@@ -71,11 +77,16 @@ export function AdminDashboard({
   coupons: AdminCoupon[]
   products: AdminProduct[]
   settings: AdminStoreSettings
+  adminEmail?: string
   displayDate: string
 }) {
   const [activeTab, setActiveTab] = useState<Tab>('overview')
 
   const totalRevenue = orders.reduce((a, o) => a + o.total, 0)
+  const averageOrderValue = orders.length ? Math.round(totalRevenue / orders.length) : 0
+  const deliveredCount = orders.filter((order) => order.status === 'delivered').length
+  const publishedCount = products.filter((product) => product.status === 'published').length
+  const vipCount = customers.filter((customer) => customer.status === 'vip').length
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -124,23 +135,26 @@ export function AdminDashboard({
           <div className="flex items-center gap-3">
             <Avatar className="h-8 w-8 border border-border">
               <AvatarFallback className="bg-brand/20 text-brand text-xs font-semibold">
-                {MOCK_ADMIN.name
-                  .split(' ')
-                  .map((n) => n[0])
-                  .join('')}
+                {initialsFromEmail(adminEmail)}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-foreground truncate">{MOCK_ADMIN.name}</p>
-              <p className="text-xs text-muted-foreground truncate">{MOCK_ADMIN.email}</p>
+              <p className="text-xs font-medium text-foreground truncate">
+                {settings.storeName} Admin
+              </p>
+              <p className="text-xs text-muted-foreground truncate">{adminEmail}</p>
             </div>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-            </Button>
+            <form action={signOutCustomer}>
+              <Button
+                type="submit"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                <span className="sr-only">Sign out</span>
+              </Button>
+            </form>
           </div>
         </div>
       </aside>
@@ -156,6 +170,7 @@ export function AdminDashboard({
           <div className="flex items-center gap-3">
             <Button
               size="sm"
+              onClick={() => setActiveTab('products')}
               className="bg-foreground text-background hover:bg-foreground/80 gap-2 text-xs"
             >
               <Plus className="h-3.5 w-3.5" />
@@ -175,29 +190,29 @@ export function AdminDashboard({
                     label: 'Total Revenue',
                     value: `$${totalRevenue.toLocaleString()}`,
                     icon: DollarSign,
-                    change: '+12.5%',
-                    up: true,
+                    change: `Avg $${averageOrderValue.toLocaleString()} per order`,
+                    up: totalRevenue > 0,
                   },
                   {
                     label: 'Total Orders',
                     value: orders.length.toString(),
                     icon: ShoppingCart,
-                    change: '+8.2%',
-                    up: true,
+                    change: `${deliveredCount} delivered`,
+                    up: deliveredCount > 0,
                   },
                   {
                     label: 'Products',
                     value: products.length.toString(),
                     icon: Package,
-                    change: '+2 this week',
-                    up: true,
+                    change: `${publishedCount} published`,
+                    up: publishedCount > 0,
                   },
                   {
                     label: 'Customers',
                     value: customers.length.toString(),
                     icon: Users,
-                    change: '-1.4%',
-                    up: false,
+                    change: `${vipCount} VIP`,
+                    up: vipCount > 0,
                   },
                 ].map(({ label, value, icon: Icon, change, up }) => (
                   <div key={label} className="rounded-xl border border-border bg-card p-5">
@@ -421,11 +436,15 @@ export function AdminDashboard({
                       </div>
                       <div className="col-span-2 flex justify-end">
                         <Button
+                          asChild
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-muted-foreground"
                         >
-                          <ChevronRight className="h-3.5 w-3.5" />
+                          <a href={`mailto:${customer.email}`}>
+                            <ChevronRight className="h-3.5 w-3.5" />
+                            <span className="sr-only">Email {customer.name}</span>
+                          </a>
                         </Button>
                       </div>
                     </div>

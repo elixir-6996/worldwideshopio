@@ -6,6 +6,10 @@ vi.mock('@/app/actions/coupons', () => ({
   deleteCoupon: vi.fn(),
 }))
 
+vi.mock('@/app/actions/customer', () => ({
+  signOutCustomer: vi.fn(),
+}))
+
 vi.mock('@/app/actions/products', () => ({
   saveProduct: vi.fn(),
   deleteProduct: vi.fn(),
@@ -21,11 +25,11 @@ import { AdminDashboard } from '@/components/admin-dashboard'
 const SETTINGS = {
   storeName: 'LUXE',
   tagline: 'Modern essentials',
-  supportEmail: 'support@luxe.demo',
+  supportEmail: 'support@luxe.test',
   currency: 'USD',
   freeShippingThreshold: 200,
-  standardShippingRate: 15,
-  expressShippingRate: 30,
+  standardShippingRate: 12,
+  expressShippingRate: 28,
 }
 
 describe('AdminDashboard', () => {
