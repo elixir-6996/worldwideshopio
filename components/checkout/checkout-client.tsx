@@ -27,7 +27,10 @@ import {
   type CheckoutDetails,
   type DeliveryMethod,
   type PaymentMethod,
+  type ShippingRates,
 } from '@/lib/checkout'
+import type { Product } from '@/lib/store'
+import { useCart } from '@/hooks/use-cart'
 import { completeOrder, getSavedAddresses, saveAddress } from '@/app/actions/checkout'
 import { validateCoupon } from '@/app/actions/coupons'
 
@@ -36,12 +39,19 @@ const STRIPE_CONFIGURED = Boolean(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
 
 export function CheckoutClient({
   initialItems,
+  catalog,
+  rates,
   initialCoupon = '',
 }: {
   initialItems: CartPayloadItem[]
+  catalog: Product[]
+  rates: ShippingRates
   initialCoupon?: string
 }) {
+  // The cart is frozen for the duration of checkout so totals shown to the
+  // customer cannot change mid-flow; `clear` empties it once the order lands.
   const [items] = useState<CartPayloadItem[]>(initialItems)
+  const { clear: clearCart } = useCart(initialItems)
   const [step, setStep] = useState(0)
   const [direction, setDirection] = useState(1)
 
@@ -66,10 +76,10 @@ export function CheckoutClient({
 
   const panelRef = useRef<HTMLDivElement>(null)
 
-  const cart = useMemo(() => hydrateCart(items), [items])
+  const cart = useMemo(() => hydrateCart(items, catalog), [items, catalog])
   const totals = useMemo(
-    () => calculateTotals(items, delivery, couponSavings),
-    [items, delivery, couponSavings],
+    () => calculateTotals(cart, delivery, couponSavings, rates),
+    [cart, delivery, couponSavings, rates],
   )
 
   useEffect(() => {
@@ -137,7 +147,7 @@ export function CheckoutClient({
   }
 
   const applyCoupon = async () => {
-    const base = calculateTotals(items, delivery)
+    const base = calculateTotals(cart, delivery, {}, rates)
     const result = await validateCoupon({
       code: couponInput,
       subtotal: base.subtotal,
@@ -162,6 +172,7 @@ export function CheckoutClient({
     setPlaceError('')
     try {
       const result = await completeOrder(items, details, paymentReference)
+      clearCart()
       setOrder(result)
     } catch (error) {
       setPlaceError(error instanceof Error ? error.message : 'Could not place order.')

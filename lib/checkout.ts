@@ -1,4 +1,7 @@
-import { PRODUCTS, type CartItem } from '@/lib/store'
+import type { CartItem, Product } from '@/lib/store'
+import { MAX_ITEM_QUANTITY, type CartPayloadItem } from '@/lib/cart'
+
+export type { CartPayloadItem }
 
 export type DeliveryMethod = 'standard' | 'express'
 export type PaymentMethod = 'stripe' | 'razorpay' | 'paypal'
@@ -23,37 +26,69 @@ export type CheckoutDetails = {
   coupon?: string
 }
 
-export type CartPayloadItem = {
-  productId: string
-  quantity: number
-  size?: string
-  color?: string
+export type ShippingRates = {
+  freeShippingThreshold: number
+  standardShippingRate: number
+  expressShippingRate: number
 }
 
-export const DEFAULT_CART: CartPayloadItem[] = [
-  { productId: 'p1', quantity: 1, size: 'M', color: 'Black' },
-  { productId: 'p3', quantity: 1 },
-]
+export const DEFAULT_SHIPPING_RATES: ShippingRates = {
+  freeShippingThreshold: 200,
+  standardShippingRate: 15,
+  expressShippingRate: 30,
+}
 
-export function hydrateCart(items: CartPayloadItem[]): CartItem[] {
+export const TAX_RATE = 0.0825
+
+/**
+ * Resolves cart identifiers against the live catalog. Unknown products are
+ * dropped so a stale cookie can never inject a price the store does not offer.
+ */
+export function hydrateCart(items: CartPayloadItem[], catalog: Product[]): CartItem[] {
+  const byId = new Map(catalog.map((product) => [product.id, product]))
   return items.flatMap((item) => {
-    const product = PRODUCTS.find((candidate) => candidate.id === item.productId)
-    return product ? [{ ...item, product, quantity: Math.max(1, Math.min(item.quantity, 10)) }] : []
+    const product = byId.get(item.productId)
+    if (!product) return []
+    return [
+      {
+        ...item,
+        product,
+        quantity: Math.max(1, Math.min(item.quantity, MAX_ITEM_QUANTITY)),
+      },
+    ]
   })
 }
 
+export type OrderTotals = {
+  subtotal: number
+  discount: number
+  shipping: number
+  shippingSavings: number
+  tax: number
+  total: number
+}
+
+/**
+ * Computes order totals from an already hydrated cart, so callers cannot
+ * accidentally price a cart against a catalog it was not resolved with.
+ */
 export function calculateTotals(
-  items: CartPayloadItem[],
+  cart: CartItem[],
   delivery: DeliveryMethod,
   savings: { discount?: number; shippingSavings?: number } = {},
-) {
-  const cart = hydrateCart(items)
+  rates: ShippingRates = DEFAULT_SHIPPING_RATES,
+): OrderTotals {
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0)
-  const discount = Math.min(subtotal, Math.max(0, savings.discount ?? 0))
-  const baseShipping = delivery === 'express' ? 30 : subtotal > 200 ? 0 : 15
-  const shippingSavings = Math.min(baseShipping, Math.max(0, savings.shippingSavings ?? 0))
+  const discount = Math.min(subtotal, Math.max(0, Math.round(savings.discount ?? 0)))
+  const baseShipping =
+    delivery === 'express'
+      ? rates.expressShippingRate
+      : subtotal > rates.freeShippingThreshold
+        ? 0
+        : rates.standardShippingRate
+  const shippingSavings = Math.min(baseShipping, Math.max(0, Math.round(savings.shippingSavings ?? 0)))
   const shipping = baseShipping - shippingSavings
-  const tax = Math.round((subtotal - discount) * 0.0825)
+  const tax = Math.round((subtotal - discount) * TAX_RATE)
   return {
     subtotal,
     discount,
