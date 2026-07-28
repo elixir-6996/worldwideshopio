@@ -6,6 +6,7 @@ import { gsap } from 'gsap'
 import { ArrowLeft, ArrowRight, Loader2, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Navbar } from '@/components/navbar'
+import { useCart } from '@/components/cart-provider'
 import { DualPrice } from '@/components/dual-price'
 import { Stepper } from '@/components/checkout/stepper'
 import {
@@ -21,13 +22,15 @@ import { SuccessScreen } from '@/components/checkout/success-screen'
 import { StripePaymentPanel } from '@/components/stripe-payment-panel'
 import {
   calculateTotals,
-  hydrateCart,
+  cartCount,
+  DEFAULT_SHIPPING_RATES,
   type Address,
-  type CartPayloadItem,
   type CheckoutDetails,
   type DeliveryMethod,
   type PaymentMethod,
+  type ShippingRates,
 } from '@/lib/checkout'
+import type { CartItem } from '@/lib/store'
 import { completeOrder, getSavedAddresses, saveAddress } from '@/app/actions/checkout'
 import { validateCoupon } from '@/app/actions/coupons'
 
@@ -35,13 +38,15 @@ const STEPS = ['Shipping', 'Delivery', 'Payment', 'Review']
 const STRIPE_CONFIGURED = Boolean(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
 
 export function CheckoutClient({
-  initialItems,
+  cart,
+  rates = DEFAULT_SHIPPING_RATES,
   initialCoupon = '',
 }: {
-  initialItems: CartPayloadItem[]
+  cart: CartItem[]
+  rates?: ShippingRates
   initialCoupon?: string
 }) {
-  const [items] = useState<CartPayloadItem[]>(initialItems)
+  const { setCount } = useCart()
   const [step, setStep] = useState(0)
   const [direction, setDirection] = useState(1)
 
@@ -66,10 +71,9 @@ export function CheckoutClient({
 
   const panelRef = useRef<HTMLDivElement>(null)
 
-  const cart = useMemo(() => hydrateCart(items), [items])
   const totals = useMemo(
-    () => calculateTotals(items, delivery, couponSavings),
-    [items, delivery, couponSavings],
+    () => calculateTotals(cart, delivery, couponSavings, rates),
+    [cart, delivery, couponSavings, rates],
   )
 
   useEffect(() => {
@@ -137,7 +141,7 @@ export function CheckoutClient({
   }
 
   const applyCoupon = async () => {
-    const base = calculateTotals(items, delivery)
+    const base = calculateTotals(cart, delivery, {}, rates)
     const result = await validateCoupon({
       code: couponInput,
       subtotal: base.subtotal,
@@ -161,8 +165,9 @@ export function CheckoutClient({
     setPlacing(true)
     setPlaceError('')
     try {
-      const result = await completeOrder(items, details, paymentReference)
+      const result = await completeOrder(details, paymentReference)
       setOrder(result)
+      setCount(0)
     } catch (error) {
       setPlaceError(error instanceof Error ? error.message : 'Could not place order.')
       setShowStripe(false)
@@ -191,7 +196,7 @@ export function CheckoutClient({
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      <Navbar cartCount={cart.reduce((sum, item) => sum + item.quantity, 0)} />
+      <Navbar cartCount={cartCount(cart)} />
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-10 md:px-6">
         <div className="grid grid-cols-1 gap-10 lg:grid-cols-5">
@@ -241,11 +246,7 @@ export function CheckoutClient({
                     payment={payment}
                   />
                   {showStripe && payment === 'stripe' && (
-                    <StripePaymentPanel
-                      items={items}
-                      details={details}
-                      onComplete={finalizeOrder}
-                    />
+                    <StripePaymentPanel details={details} onComplete={finalizeOrder} />
                   )}
                   {placeError && (
                     <p className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">

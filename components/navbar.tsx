@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createElement, useState, useEffect, useRef } from 'react'
 import {
   ShoppingBag,
@@ -419,9 +420,20 @@ function MegaMenu({ columns }: { columns: MegaColumn[] }) {
 /* ─── Search Overlay ─────────────────────────────────────────────── */
 function SearchOverlay({ onClose }: { onClose: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const router = useRouter()
+  const [term, setTerm] = useState('')
+
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
+
+  const submit = (value: string) => {
+    const q = value.trim()
+    if (!q) return
+    onClose()
+    router.push(`/products?q=${encodeURIComponent(q)}`)
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -441,7 +453,15 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
           <input
             ref={inputRef}
             type="text"
+            value={term}
+            onChange={(e) => setTerm(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.nativeEvent.isComposing || e.keyCode === 229) return
+              if (e.key === 'Enter') submit(term)
+              if (e.key === 'Escape') onClose()
+            }}
             placeholder="Search products, brands, categories…"
+            aria-label="Search products"
             className="flex-1 bg-transparent text-lg text-foreground placeholder:text-muted-foreground outline-none"
           />
           <button onClick={onClose}>
@@ -451,12 +471,14 @@ function SearchOverlay({ onClose }: { onClose: () => void }) {
         <div className="mx-auto max-w-3xl px-4 pb-4 flex flex-wrap gap-2">
           {['Luxury Watches', 'Korean Fashion', 'Sneakers', 'Smartphones', "Today's Deals"].map(
             (s) => (
-              <span
+              <button
                 key={s}
+                type="button"
+                onClick={() => submit(s)}
                 className="text-xs px-3 py-1.5 rounded-full bg-white/6 text-muted-foreground hover:text-foreground hover:bg-white/10 cursor-pointer transition-all border border-white/8"
               >
                 {s}
-              </span>
+              </button>
             ),
           )}
         </div>
@@ -748,9 +770,7 @@ export function Navbar({
                     {cartBadge}
                   </Badge>
                 )}
-                <span className="sr-only">
-                  Cart{cartBadge > 0 ? ` (${cartBadge} items)` : ''}
-                </span>
+                <span className="sr-only">Cart{cartBadge > 0 ? ` (${cartBadge} items)` : ''}</span>
               </Link>
             </Button>
 

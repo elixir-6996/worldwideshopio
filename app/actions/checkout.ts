@@ -2,26 +2,17 @@
 
 import { randomUUID } from 'node:crypto'
 import { cookies } from 'next/headers'
+import { revalidatePath } from 'next/cache'
 import { desc, eq } from 'drizzle-orm'
 import { z } from 'zod'
 import { checkoutAddresses, orders } from '@/lib/db/schema'
 import { db } from '@/lib/db'
-import {
-  calculateTotals,
-  hydrateCart,
-  type CartPayloadItem,
-  type CheckoutDetails,
-} from '@/lib/checkout'
+import { calculateTotals, type CheckoutDetails } from '@/lib/checkout'
+import { getCart, writeCartItems } from '@/lib/cart'
 import { updateOrderFromStripeSession } from '@/lib/order-payments'
 import { redeemCoupon, validateCoupon } from '@/app/actions/coupons'
 import { stripe } from '@/lib/stripe'
-
-const itemSchema = z.object({
-  productId: z.string().min(1),
-  quantity: z.number().int().min(1).max(10),
-  size: z.string().optional(),
-  color: z.string().optional(),
-})
+import type { CartItem } from '@/lib/store'
 
 const addressSchema = z.object({
   id: z.string().uuid().optional(),
@@ -80,8 +71,9 @@ export async function saveAddress(input: CheckoutDetails['address']) {
   return saved
 }
 
-function orderSnapshot(items: CartPayloadItem[]) {
-  return hydrateCart(items).map(({ product, quantity, size, color }) => ({
+/** Immutable line snapshot stored on the order row. */
+function orderSnapshot(cart: CartItem[]) {
+  return cart.map(({ product, quantity, size, color }) => ({
     productId: product.id,
     name: product.name,
     image: product.image,
@@ -92,20 +84,14 @@ function orderSnapshot(items: CartPayloadItem[]) {
   }))
 }
 
-export async function startStripeCheckout(
-  itemsInput: CartPayloadItem[],
-  detailsInput: CheckoutDetails,
-) {
-  const items = z.array(itemSchema).min(1).parse(itemsInput)
-  const details = detailsSchema.parse(detailsInput)
-  if (details.paymentMethod !== 'stripe') throw new Error('Invalid payment method.')
-  const cart = hydrateCart(items)
+/**
+ * Loads the cookie cart, prices it against the live catalog and validates any
+ * coupon server-side. The client never supplies prices or line data.
+ */
+async function priceCart(details: CheckoutDetails) {
+  const { cart, rates } = await getCart()
   if (!cart.length) throw new Error('Your cart is empty.')
-  if (!stripe) throw new Error('Stripe is not configured. Use the demo checkout flow.')
-
-  const token = await checkoutToken()
-  if (!token) throw new Error('Unable to initialize checkout.')
-  const baseTotals = calculateTotals(items, details.deliveryMethod)
+  const baseTotals = calculateTotals(cart, details.deliveryMethod, {}, rates)
   const couponResult = details.coupon
     ? await validateCoupon({
         code: details.coupon,
@@ -116,8 +102,23 @@ export async function startStripeCheckout(
     : null
   if (details.coupon && !couponResult?.valid)
     throw new Error(couponResult?.message ?? 'Invalid coupon.')
-  const totals = calculateTotals(items, details.deliveryMethod, couponResult ?? {})
-  const orderNumber = `LUX-${new Date().getFullYear()}-${randomUUID().slice(0, 8).toUpperCase()}`
+  const totals = calculateTotals(cart, details.deliveryMethod, couponResult ?? {}, rates)
+  return { cart, totals, couponResult }
+}
+
+function newOrderNumber() {
+  return `LUX-${new Date().getFullYear()}-${randomUUID().slice(0, 8).toUpperCase()}`
+}
+
+export async function startStripeCheckout(detailsInput: CheckoutDetails) {
+  const details = detailsSchema.parse(detailsInput)
+  if (details.paymentMethod !== 'stripe') throw new Error('Invalid payment method.')
+  if (!stripe) throw new Error('Stripe is not configured. Use the demo checkout flow.')
+
+  const token = await checkoutToken()
+  if (!token) throw new Error('Unable to initialize checkout.')
+  const { cart, totals, couponResult } = await priceCart(details)
+  const orderNumber = newOrderNumber()
   const [order] = await db
     .insert(orders)
     .values({
@@ -130,7 +131,7 @@ export async function startStripeCheckout(
       coupon: couponResult?.code ?? null,
       deliveryMethod: details.deliveryMethod,
       address: details.address,
-      items: orderSnapshot(items),
+      items: orderSnapshot(cart),
     })
     .returning({ id: orders.id })
 
@@ -173,12 +174,7 @@ export async function startStripeCheckout(
   }
 }
 
-export async function completeOrder(
-  itemsInput: CartPayloadItem[],
-  detailsInput: CheckoutDetails,
-  paymentReference?: string,
-) {
-  const items = z.array(itemSchema).min(1).parse(itemsInput)
+export async function completeOrder(detailsInput: CheckoutDetails, paymentReference?: string) {
   const details = detailsSchema.parse(detailsInput)
   const token = await checkoutToken()
   if (!token) throw new Error('Unable to initialize checkout.')
@@ -188,24 +184,13 @@ export async function completeOrder(
     const session = await stripe.checkout.sessions.retrieve(paymentReference)
     if (session.payment_status !== 'paid') throw new Error('Payment has not completed.')
     if (session.metadata?.checkoutToken !== token) throw new Error('Payment session mismatch.')
-    return updateOrderFromStripeSession(session, 'paid')
+    const result = await updateOrderFromStripeSession(session, 'paid')
+    await finishOrder()
+    return result
   }
 
-  const cart = hydrateCart(items)
-  if (!cart.length) throw new Error('Your cart is empty.')
-  const baseTotals = calculateTotals(items, details.deliveryMethod)
-  const couponResult = details.coupon
-    ? await validateCoupon({
-        code: details.coupon,
-        subtotal: baseTotals.subtotal,
-        shipping: baseTotals.shipping,
-        email: details.email,
-      })
-    : null
-  if (details.coupon && !couponResult?.valid)
-    throw new Error(couponResult?.message ?? 'Invalid coupon.')
-  const totals = calculateTotals(items, details.deliveryMethod, couponResult ?? {})
-  const orderNumber = `LUX-${new Date().getFullYear()}-${randomUUID().slice(0, 8).toUpperCase()}`
+  const { cart, totals, couponResult } = await priceCart(details)
+  const orderNumber = newOrderNumber()
   const [paidOrder] = await db
     .insert(orders)
     .values({
@@ -220,7 +205,7 @@ export async function completeOrder(
       coupon: couponResult?.code ?? null,
       deliveryMethod: details.deliveryMethod,
       address: details.address,
-      items: orderSnapshot(items),
+      items: orderSnapshot(cart),
     })
     .returning({ id: orders.id })
   if (details.coupon && paidOrder) {
@@ -233,5 +218,14 @@ export async function completeOrder(
       shippingSavings: totals.shippingSavings,
     })
   }
+  await finishOrder()
   return { orderNumber, paymentStatus: 'paid' }
+}
+
+/** Empties the cookie cart and refreshes cart-aware routes after a paid order. */
+async function finishOrder() {
+  await writeCartItems([])
+  revalidatePath('/cart')
+  revalidatePath('/checkout')
+  revalidatePath('/dashboard')
 }
