@@ -1,7 +1,20 @@
 import { describe, expect, it } from 'vitest'
-import { calculateTotals } from './checkout'
+import { calculateTotals, hydrateCart } from './checkout'
+import type { Product } from './store'
 
-const cart = [{ productId: 'p1', quantity: 1 }]
+const product: Product = {
+  id: 'p1',
+  name: 'Test Product',
+  price: 100,
+  image: '/images/product-1.png',
+  category: 'Test',
+  description: 'A product used to exercise pricing rules.',
+  rating: 5,
+  reviews: 1,
+  inStock: true,
+}
+
+const cart = hydrateCart([{ productId: 'p1', quantity: 1 }], [product])
 
 describe('checkout totals', () => {
   it('applies a product discount before calculating tax', () => {
@@ -27,5 +40,18 @@ describe('checkout totals', () => {
 
     expect(totals.discount).toBe(totals.subtotal)
     expect(totals.total).toBeGreaterThanOrEqual(0)
+  })
+
+  it('drops cart lines whose product left the catalog', () => {
+    const hydrated = hydrateCart(
+      [
+        { productId: 'p1', quantity: 2 },
+        { productId: 'gone', quantity: 3 },
+      ],
+      [product],
+    )
+
+    expect(hydrated).toHaveLength(1)
+    expect(hydrated[0].quantity).toBe(2)
   })
 })

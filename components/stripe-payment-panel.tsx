@@ -4,25 +4,24 @@ import { useCallback, useRef } from 'react'
 import { EmbeddedCheckout, EmbeddedCheckoutProvider } from '@stripe/react-stripe-js'
 import { loadStripe } from '@stripe/stripe-js'
 import { startStripeCheckout } from '@/app/actions/checkout'
-import type { CartPayloadItem, CheckoutDetails } from '@/lib/checkout'
+import type { CheckoutDetails } from '@/lib/checkout'
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '')
 
 export function StripePaymentPanel({
-  items,
   details,
   onComplete,
 }: {
-  items: CartPayloadItem[]
   details: CheckoutDetails
   onComplete: (sessionId: string) => void
 }) {
   const sessionIdRef = useRef('')
   const fetchClientSecret = useCallback(async () => {
-    const result = await startStripeCheckout(items, details)
+    // Line items and totals are priced server-side from the cookie cart.
+    const result = await startStripeCheckout(details)
     sessionIdRef.current = result.sessionId
     return result.clientSecret
-  }, [details, items])
+  }, [details])
   const handleComplete = useCallback(() => {
     if (sessionIdRef.current) onComplete(sessionIdRef.current)
   }, [onComplete])

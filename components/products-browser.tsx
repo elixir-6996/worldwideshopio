@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { SlidersHorizontal, X } from 'lucide-react'
+import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -69,7 +70,7 @@ export function ProductsBrowser({
 
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar cartCount={2} />
+      <Navbar />
 
       <main className="flex-1">
         {/* Header */}

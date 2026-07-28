@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { ProductDetailClient } from '@/components/product-detail-client'
-import { getProductBySlug, getProductImages } from '@/lib/products'
+import { getProductBySlug, getProductImages, getPublishedProducts } from '@/lib/products'
 
 type ProductPageProps = { params: Promise<{ id: string }> }
 
@@ -38,7 +38,13 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const product = await getProductBySlug(id)
   if (!product) notFound()
 
-  const images = await getProductImages(id)
+  const [images, catalog] = await Promise.all([getProductImages(id), getPublishedProducts()])
+
+  // Prefer same-category products, then fall back to the rest of the catalog.
+  const others = catalog.filter((item) => item.id !== product.id)
+  const sameCategory = others.filter((item) => item.category === product.category)
+  const related = [...sameCategory, ...others.filter((item) => item.category !== product.category)]
+    .slice(0, 4)
 
   const productJsonLd = {
     '@context': 'https://schema.org',
@@ -69,7 +75,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd).replace(/</g, '\\u003c') }}
       />
-      <ProductDetailClient product={product} gallery={images} />
+      <ProductDetailClient product={product} gallery={images} related={related} />
     </>
   )
 }

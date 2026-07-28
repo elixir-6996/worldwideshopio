@@ -1,30 +1,23 @@
+import type { Metadata } from 'next'
+import { redirect } from 'next/navigation'
 import { CheckoutClient } from '@/components/checkout/checkout-client'
-import { DEFAULT_CART, type CartPayloadItem } from '@/lib/checkout'
+import { getCart } from '@/lib/cart'
 
-function parseCart(value?: string): CartPayloadItem[] {
-  if (!value) return DEFAULT_CART
-  try {
-    const parsed = JSON.parse(Buffer.from(value, 'base64url').toString('utf8'))
-    if (!Array.isArray(parsed)) return DEFAULT_CART
-    const items = parsed.filter(
-      (item): item is CartPayloadItem =>
-        typeof item === 'object' &&
-        item !== null &&
-        typeof item.productId === 'string' &&
-        Number.isInteger(item.quantity) &&
-        item.quantity > 0,
-    )
-    return items.length ? items : DEFAULT_CART
-  } catch {
-    return DEFAULT_CART
-  }
+export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = {
+  title: 'Checkout',
+  description: 'Complete your order securely.',
+  robots: { index: false, follow: false },
 }
 
 export default async function CheckoutPage({
   searchParams,
 }: {
-  searchParams: Promise<{ cart?: string; coupon?: string }>
+  searchParams: Promise<{ coupon?: string }>
 }) {
-  const { cart, coupon } = await searchParams
-  return <CheckoutClient initialItems={parseCart(cart)} initialCoupon={coupon ?? ''} />
+  const [{ coupon }, { cart, rates }] = await Promise.all([searchParams, getCart()])
+  // Checkout is meaningless without a cart, and the cart page explains why.
+  if (!cart.length) redirect('/cart')
+  return <CheckoutClient cart={cart} rates={rates} initialCoupon={coupon ?? ''} />
 }

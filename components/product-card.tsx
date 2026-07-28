@@ -1,19 +1,50 @@
 'use client'
 
+import { useState, useTransition } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Star, ShoppingBag } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Star, ShoppingBag, Check, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import type { Product } from '@/lib/store'
 import { DualPrice } from '@/components/dual-price'
+import { useCart } from '@/components/cart-provider'
+import { addToCart } from '@/app/actions/cart'
 
 interface ProductCardProps {
   product: Product
-  onAddToCart?: (product: Product) => void
 }
 
-export function ProductCard({ product, onAddToCart }: ProductCardProps) {
+export function ProductCard({ product }: ProductCardProps) {
+  const router = useRouter()
+  const { setCount } = useCart()
+  const [pending, startTransition] = useTransition()
+  const [added, setAdded] = useState(false)
+  const [error, setError] = useState('')
+
+  const quickAdd = (event: React.MouseEvent) => {
+    event.preventDefault()
+    setError('')
+    startTransition(async () => {
+      const result = await addToCart({
+        productId: product.id,
+        quantity: 1,
+        // Quick Add takes the first variant; the detail page offers the full choice.
+        size: product.sizes?.[0],
+        color: product.colors?.[0],
+      })
+      setCount(result.count)
+      if (result.error) {
+        setError(result.error)
+        return
+      }
+      setAdded(true)
+      router.refresh()
+      setTimeout(() => setAdded(false), 1800)
+    })
+  }
+
   return (
     <div className="group relative flex flex-col bg-card border border-border rounded-lg overflow-hidden hover:border-foreground/20 transition-all duration-300">
       {/* Image */}
@@ -43,17 +74,22 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
         )}
         {/* Quick Add overlay */}
         {product.inStock && (
-          <div className="absolute inset-x-0 bottom-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300 p-3">
+          <div className="absolute inset-x-0 bottom-0 translate-y-full group-hover:translate-y-0 focus-within:translate-y-0 transition-transform duration-300 p-3">
             <Button
               size="sm"
               className="w-full bg-foreground/90 text-background hover:bg-foreground backdrop-blur-sm"
-              onClick={(e) => {
-                e.preventDefault()
-                onAddToCart?.(product)
-              }}
+              onClick={quickAdd}
+              disabled={pending}
+              aria-label={`Add ${product.name} to cart`}
             >
-              <ShoppingBag className="h-4 w-4 mr-2" />
-              Quick Add
+              {pending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : added ? (
+                <Check className="h-4 w-4 mr-2" />
+              ) : (
+                <ShoppingBag className="h-4 w-4 mr-2" />
+              )}
+              {added ? 'Added' : 'Quick Add'}
             </Button>
           </div>
         )}
@@ -90,6 +126,11 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
             />
           )}
         </div>
+        {error && (
+          <p role="alert" className="text-xs text-destructive">
+            {error}
+          </p>
+        )}
       </div>
     </div>
   )
