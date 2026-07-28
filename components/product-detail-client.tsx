@@ -21,14 +21,16 @@ import { Navbar } from '@/components/navbar'
 import { DualPrice } from '@/components/dual-price'
 import { Footer } from '@/components/footer'
 import { ProductCard } from '@/components/product-card'
-import { PRODUCTS } from '@/lib/store'
+import type { Product } from '@/lib/store'
 
-export function ProductDetailClient({ product }: { product: (typeof PRODUCTS)[number] }) {
-  const related = PRODUCTS.filter(
-    (p) => p.id !== product.id && p.category === product.category,
-  ).slice(0, 4)
-  const fallbackRelated = PRODUCTS.filter((p) => p.id !== product.id).slice(0, 4)
-
+export function ProductDetailClient({
+  product,
+  related = [],
+}: {
+  product: Product
+  gallery?: string[]
+  related?: Product[]
+}) {
   const [selectedSize, setSelectedSize] = useState<string | null>(product.sizes?.[2] ?? null)
   const [selectedColor, setSelectedColor] = useState<string | null>(product.colors?.[0] ?? null)
   const [quantity, setQuantity] = useState(1)
@@ -40,7 +42,7 @@ export function ProductDetailClient({ product }: { product: (typeof PRODUCTS)[nu
     setTimeout(() => setAddedToCart(false), 2000)
   }
 
-  const displayRelated = related.length > 0 ? related : fallbackRelated
+  const displayRelated = related
 
   return (
     <div className="min-h-screen flex flex-col">

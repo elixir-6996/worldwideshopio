@@ -1,9 +1,10 @@
 import 'server-only'
 
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray } from 'drizzle-orm'
 import { db, safeQuery } from '@/lib/db'
 import { products, storeSettings } from '@/lib/db/schema'
-import type { Product } from '@/lib/store'
+import type { CartItem, Product } from '@/lib/store'
+import { clampQuantity, type CartPayloadItem } from '@/lib/checkout'
 
 /** A catalog row as stored in the database, including admin-only fields. */
 export type ProductRow = typeof products.$inferSelect
@@ -99,6 +100,112 @@ export async function getProductImages(slug: string): Promise<string[]> {
 export async function getCategories(): Promise<string[]> {
   const items = await getPublishedProducts()
   return [...new Set(items.map((item) => item.category))].sort((a, b) => a.localeCompare(b))
+}
+
+/** Every published slug — used to build the sitemap. */
+export async function getPublishedSlugs(): Promise<string[]> {
+  const rows = await safeQuery(
+    'getPublishedSlugs',
+    () =>
+      db
+        .select({ slug: products.slug, updatedAt: products.updatedAt })
+        .from(products)
+        .where(eq(products.status, 'published'))
+        .orderBy(asc(products.sortOrder)),
+    [] as { slug: string; updatedAt: Date }[],
+  )
+  return rows.map((row) => row.slug)
+}
+
+/**
+ * Looks up several published products at once and returns them in the order the
+ * slugs were requested. Used to hydrate carts, which reference products by the
+ * public slug rather than the internal uuid.
+ */
+export async function getProductsBySlugs(slugs: string[]): Promise<Product[]> {
+  const wanted = [...new Set(slugs.filter(Boolean))]
+  if (!wanted.length) return []
+
+  const rows = await safeQuery(
+    'getProductsBySlugs',
+    () =>
+      db
+        .select()
+        .from(products)
+        .where(and(inArray(products.slug, wanted), eq(products.status, 'published'))),
+    [] as ProductRow[],
+  )
+  const bySlug = new Map(rows.map((row) => [row.slug, toProduct(row)]))
+  return wanted.flatMap((slug) => {
+    const product = bySlug.get(slug)
+    return product ? [product] : []
+  })
+}
+
+/**
+ * Turns stored cart payload items into full cart lines using live catalog data.
+ * Items whose product was deleted or unpublished are dropped, so a stale cart
+ * link can never resurrect a product that is no longer for sale.
+ */
+export async function hydrateCartFromDatabase(items: CartPayloadItem[]): Promise<CartItem[]> {
+  const catalog = await getProductsBySlugs(items.map((item) => item.productId))
+  const bySlug = new Map(catalog.map((product) => [product.id, product]))
+  return items.flatMap((item) => {
+    const product = bySlug.get(item.productId)
+    return product ? [{ ...item, product, quantity: clampQuantity(item.quantity) }] : []
+  })
+}
+
+/**
+ * The catalog order set in the admin panel is the merchandising order, so the
+ * first published rows are the storefront's "best sellers" and the next ones
+ * are "trending".
+ */
+export async function getHomepageProducts(): Promise<{
+  bestsellers: Product[]
+  trending: Product[]
+}> {
+  const published = await getPublishedProducts()
+  return { bestsellers: published.slice(0, 4), trending: published.slice(4, 8) }
+}
+
+/** Newest published products first. */
+export async function getNewArrivals(limit = 4): Promise<Product[]> {
+  const rows = await safeQuery(
+    'getNewArrivals',
+    () =>
+      db
+        .select()
+        .from(products)
+        .where(eq(products.status, 'published'))
+        .orderBy(desc(products.createdAt))
+        .limit(limit),
+    [] as ProductRow[],
+  )
+  return rows.map(toProduct)
+}
+
+/**
+ * Products from the same category, falling back to the rest of the catalog when
+ * a category has no other published items.
+ */
+export async function getRelatedProducts(slug: string, limit = 4): Promise<Product[]> {
+  const published = await getPublishedProducts()
+  const others = published.filter((item) => item.id !== slug)
+  const current = published.find((item) => item.id === slug)
+  const sameCategory = current
+    ? others.filter((item) => item.category === current.category)
+    : []
+  return (sameCategory.length ? sameCategory : others).slice(0, limit)
+}
+
+/**
+ * Seeds an empty checkout with the top of the catalog so the flow stays
+ * explorable when it is opened without a cart link.
+ */
+export async function getDefaultCartItems(): Promise<CartPayloadItem[]> {
+  const published = await getPublishedProducts()
+  return published.slice(0, 2).map((product) => ({ productId: product.id, quantity: 1 }))
 }
 
 /** Store settings, falling back to defaults when unset or unreachable. */

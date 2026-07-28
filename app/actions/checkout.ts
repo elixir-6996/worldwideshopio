@@ -8,10 +8,10 @@ import { checkoutAddresses, orders } from '@/lib/db/schema'
 import { db } from '@/lib/db'
 import {
   calculateTotals,
-  hydrateCart,
   type CartPayloadItem,
   type CheckoutDetails,
 } from '@/lib/checkout'
+import { getStoreSettings, hydrateCartFromDatabase } from '@/lib/products'
 import { updateOrderFromStripeSession } from '@/lib/order-payments'
 import { redeemCoupon, validateCoupon } from '@/app/actions/coupons'
 import { stripe } from '@/lib/stripe'
@@ -80,8 +80,30 @@ export async function saveAddress(input: CheckoutDetails['address']) {
   return saved
 }
 
-function orderSnapshot(items: CartPayloadItem[]) {
-  return hydrateCart(items).map(({ product, quantity, size, color }) => ({
+type PricedCart = Awaited<ReturnType<typeof hydrateCartFromDatabase>>
+
+/**
+ * Loads the cart from the catalog and prices it with the live store settings.
+ * Every order total is derived here rather than trusting anything the browser
+ * sent, so tampering with the cart link cannot change what a customer is
+ * charged.
+ */
+async function priceCart(
+  items: CartPayloadItem[],
+  delivery: CheckoutDetails['deliveryMethod'],
+  savings: { discount?: number; shippingSavings?: number } = {},
+) {
+  const [cart, settings] = await Promise.all([hydrateCartFromDatabase(items), getStoreSettings()])
+  const totals = calculateTotals(cart, delivery, savings, settings)
+  return { cart, totals }
+}
+
+/**
+ * Freezes the product details onto the order so historical orders keep showing
+ * what was bought even after the catalog row is edited or deleted.
+ */
+function orderSnapshot(cart: PricedCart) {
+  return cart.map(({ product, quantity, size, color }) => ({
     productId: product.id,
     name: product.name,
     image: product.image,
@@ -99,13 +121,12 @@ export async function startStripeCheckout(
   const items = z.array(itemSchema).min(1).parse(itemsInput)
   const details = detailsSchema.parse(detailsInput)
   if (details.paymentMethod !== 'stripe') throw new Error('Invalid payment method.')
-  const cart = hydrateCart(items)
+  const { cart, totals: baseTotals } = await priceCart(items, details.deliveryMethod)
   if (!cart.length) throw new Error('Your cart is empty.')
   if (!stripe) throw new Error('Stripe is not configured. Use the demo checkout flow.')
 
   const token = await checkoutToken()
   if (!token) throw new Error('Unable to initialize checkout.')
-  const baseTotals = calculateTotals(items, details.deliveryMethod)
   const couponResult = details.coupon
     ? await validateCoupon({
         code: details.coupon,
@@ -116,7 +137,7 @@ export async function startStripeCheckout(
     : null
   if (details.coupon && !couponResult?.valid)
     throw new Error(couponResult?.message ?? 'Invalid coupon.')
-  const totals = calculateTotals(items, details.deliveryMethod, couponResult ?? {})
+  const { totals } = await priceCart(items, details.deliveryMethod, couponResult ?? {})
   const orderNumber = `LUX-${new Date().getFullYear()}-${randomUUID().slice(0, 8).toUpperCase()}`
   const [order] = await db
     .insert(orders)
@@ -130,7 +151,7 @@ export async function startStripeCheckout(
       coupon: couponResult?.code ?? null,
       deliveryMethod: details.deliveryMethod,
       address: details.address,
-      items: orderSnapshot(items),
+      items: orderSnapshot(cart),
     })
     .returning({ id: orders.id })
 
@@ -191,9 +212,8 @@ export async function completeOrder(
     return updateOrderFromStripeSession(session, 'paid')
   }
 
-  const cart = hydrateCart(items)
+  const { cart, totals: baseTotals } = await priceCart(items, details.deliveryMethod)
   if (!cart.length) throw new Error('Your cart is empty.')
-  const baseTotals = calculateTotals(items, details.deliveryMethod)
   const couponResult = details.coupon
     ? await validateCoupon({
         code: details.coupon,
@@ -204,7 +224,7 @@ export async function completeOrder(
     : null
   if (details.coupon && !couponResult?.valid)
     throw new Error(couponResult?.message ?? 'Invalid coupon.')
-  const totals = calculateTotals(items, details.deliveryMethod, couponResult ?? {})
+  const { totals } = await priceCart(items, details.deliveryMethod, couponResult ?? {})
   const orderNumber = `LUX-${new Date().getFullYear()}-${randomUUID().slice(0, 8).toUpperCase()}`
   const [paidOrder] = await db
     .insert(orders)
@@ -220,7 +240,7 @@ export async function completeOrder(
       coupon: couponResult?.code ?? null,
       deliveryMethod: details.deliveryMethod,
       address: details.address,
-      items: orderSnapshot(items),
+      items: orderSnapshot(cart),
     })
     .returning({ id: orders.id })
   if (details.coupon && paidOrder) {

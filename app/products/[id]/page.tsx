@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { ProductDetailClient } from '@/components/product-detail-client'
-import { getProductBySlug, getProductImages } from '@/lib/products'
+import { getProductBySlug, getProductImages, getRelatedProducts } from '@/lib/products'
 
 type ProductPageProps = { params: Promise<{ id: string }> }
 
@@ -38,7 +38,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   const product = await getProductBySlug(id)
   if (!product) notFound()
 
-  const images = await getProductImages(id)
+  const [images, related] = await Promise.all([getProductImages(id), getRelatedProducts(id)])
 
   const productJsonLd = {
     '@context': 'https://schema.org',
@@ -69,7 +69,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd).replace(/</g, '\\u003c') }}
       />
-      <ProductDetailClient product={product} gallery={images} />
+      <ProductDetailClient product={product} gallery={images} related={related} />
     </>
   )
 }

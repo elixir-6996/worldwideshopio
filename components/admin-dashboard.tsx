@@ -76,6 +76,7 @@ export function AdminDashboard({
   const [activeTab, setActiveTab] = useState<Tab>('overview')
 
   const totalRevenue = orders.reduce((a, o) => a + o.total, 0)
+  const publishedCount = products.filter((product) => product.status === 'published').length
 
   return (
     <div className="min-h-screen flex bg-background">
@@ -187,9 +188,9 @@ export function AdminDashboard({
                   },
                   {
                     label: 'Products',
-                    value: PRODUCTS.length.toString(),
+                    value: products.length.toString(),
                     icon: Package,
-                    change: '+2 this week',
+                    change: `${publishedCount} published`,
                     up: true,
                   },
                   {

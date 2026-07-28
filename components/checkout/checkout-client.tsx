@@ -21,13 +21,15 @@ import { SuccessScreen } from '@/components/checkout/success-screen'
 import { StripePaymentPanel } from '@/components/stripe-payment-panel'
 import {
   calculateTotals,
-  hydrateCart,
+  DEFAULT_SHIPPING_RATES,
+  toCartPayload,
   type Address,
-  type CartPayloadItem,
   type CheckoutDetails,
   type DeliveryMethod,
   type PaymentMethod,
+  type ShippingRates,
 } from '@/lib/checkout'
+import type { CartItem } from '@/lib/store'
 import { completeOrder, getSavedAddresses, saveAddress } from '@/app/actions/checkout'
 import { validateCoupon } from '@/app/actions/coupons'
 
@@ -35,13 +37,14 @@ const STEPS = ['Shipping', 'Delivery', 'Payment', 'Review']
 const STRIPE_CONFIGURED = Boolean(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
 
 export function CheckoutClient({
-  initialItems,
+  cart,
   initialCoupon = '',
+  rates = DEFAULT_SHIPPING_RATES,
 }: {
-  initialItems: CartPayloadItem[]
+  cart: CartItem[]
   initialCoupon?: string
+  rates?: ShippingRates
 }) {
-  const [items] = useState<CartPayloadItem[]>(initialItems)
   const [step, setStep] = useState(0)
   const [direction, setDirection] = useState(1)
 
@@ -66,10 +69,12 @@ export function CheckoutClient({
 
   const panelRef = useRef<HTMLDivElement>(null)
 
-  const cart = useMemo(() => hydrateCart(items), [items])
+  // The server hydrated `cart` from the catalog; `items` is just the slug and
+  // quantity payload the order actions re-price against the database.
+  const items = useMemo(() => toCartPayload(cart), [cart])
   const totals = useMemo(
-    () => calculateTotals(items, delivery, couponSavings),
-    [items, delivery, couponSavings],
+    () => calculateTotals(cart, delivery, couponSavings, rates),
+    [cart, delivery, couponSavings, rates],
   )
 
   useEffect(() => {
@@ -137,7 +142,7 @@ export function CheckoutClient({
   }
 
   const applyCoupon = async () => {
-    const base = calculateTotals(items, delivery)
+    const base = calculateTotals(cart, delivery, {}, rates)
     const result = await validateCoupon({
       code: couponInput,
       subtotal: base.subtotal,
