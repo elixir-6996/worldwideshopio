@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { gsap } from 'gsap'
-import { ArrowLeft, ArrowRight, Loader2, ShieldCheck } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Loader2, ShieldCheck, ShoppingBag } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Navbar } from '@/components/navbar'
 import { useCart } from '@/components/cart-provider'
@@ -185,11 +185,31 @@ export function CheckoutClient({
     await finalizeOrder()
   }
 
+  // Checked before the empty-cart branch below: placing an order clears the
+  // cart, so the confirmation must take priority over the now-empty cart.
   if (order) {
     return (
       <div className="flex min-h-screen flex-col bg-background">
         <Navbar />
         <SuccessScreen orderNumber={order.orderNumber} email={email} />
+      </div>
+    )
+  }
+
+  if (!cart.length) {
+    return (
+      <div className="flex min-h-screen flex-col bg-background">
+        <Navbar cartCount={0} />
+        <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center gap-4 px-4 py-24 text-center">
+          <ShoppingBag className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
+          <h1 className="font-serif text-3xl font-bold text-foreground">Your cart is empty</h1>
+          <p className="text-pretty text-sm text-muted-foreground">
+            Add a few pieces to your cart before heading to checkout.
+          </p>
+          <Button asChild className="bg-foreground text-background hover:bg-foreground/80">
+            <Link href="/products">Browse products</Link>
+          </Button>
+        </main>
       </div>
     )
   }
