@@ -4,7 +4,7 @@ import { del, put } from '@vercel/blob'
 import { and, eq, ne, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
-import { requireAdmin } from '@/lib/admin-auth'
+import { adminGuard } from '@/lib/admin-auth'
 import { db } from '@/lib/db'
 import { products, storeSettings } from '@/lib/db/schema'
 
@@ -94,12 +94,12 @@ function revalidateStorefront(slug?: string) {
 }
 
 export type ProductActionResult =
-  | { ok: true; slug: string }
-  | { ok: false; error: string; fieldErrors?: Record<string, string> }
+  { ok: true; slug: string } | { ok: false; error: string; fieldErrors?: Record<string, string> }
 
 /** Creates or updates a catalog row. */
 export async function saveProduct(input: unknown): Promise<ProductActionResult> {
-  await requireAdmin()
+  const guard = await adminGuard()
+  if (!guard.ok) return guard
 
   const parsed = productSchema.safeParse(input)
   if (!parsed.success) {
@@ -142,7 +142,8 @@ export async function saveProduct(input: unknown): Promise<ProductActionResult> 
 
 /** Deletes a product and cleans up any images it owned in Blob storage. */
 export async function deleteProduct(id: string): Promise<ProductActionResult> {
-  await requireAdmin()
+  const guard = await adminGuard()
+  if (!guard.ok) return guard
   const productId = z.string().uuid().parse(id)
 
   try {
@@ -168,7 +169,8 @@ export async function setProductStatus(
   id: string,
   status: 'draft' | 'published',
 ): Promise<ProductActionResult> {
-  await requireAdmin()
+  const guard = await adminGuard()
+  if (!guard.ok) return guard
   const productId = z.string().uuid().parse(id)
   const nextStatus = z.enum(['draft', 'published']).parse(status)
 
@@ -189,7 +191,8 @@ export async function setProductStatus(
 
 /** Persists a new display order from the admin drag & drop list. */
 export async function reorderProducts(ids: string[]): Promise<ProductActionResult> {
-  await requireAdmin()
+  const guard = await adminGuard()
+  if (!guard.ok) return guard
   const ordered = z.array(z.string().uuid()).max(500).parse(ids)
 
   try {
@@ -214,7 +217,8 @@ export type UploadResult = { ok: true; url: string } | { ok: false; error: strin
 
 /** Uploads one product image to Blob storage and returns its public URL. */
 export async function uploadProductImage(formData: FormData): Promise<UploadResult> {
-  await requireAdmin()
+  const guard = await adminGuard()
+  if (!guard.ok) return guard
 
   const file = formData.get('file')
   if (!(file instanceof File) || file.size === 0) {
@@ -252,7 +256,8 @@ async function removeBlobs(urls: string[]) {
 
 /** Removes a single image from Blob storage after it is detached from a product. */
 export async function deleteProductImage(url: string): Promise<UploadResult> {
-  await requireAdmin()
+  const guard = await adminGuard()
+  if (!guard.ok) return guard
   await removeBlobs([z.string().min(1).parse(url)])
   return { ok: true, url }
 }
@@ -269,11 +274,15 @@ const settingsSchema = z.object({
 
 /** Upserts the single store-settings row. */
 export async function saveStoreSettings(input: unknown): Promise<ProductActionResult> {
-  await requireAdmin()
+  const guard = await adminGuard()
+  if (!guard.ok) return guard
 
   const parsed = settingsSchema.safeParse(input)
   if (!parsed.success) {
-    return { ok: false, error: parsed.error.flatten().formErrors[0] ?? 'Check the settings fields.' }
+    return {
+      ok: false,
+      error: parsed.error.flatten().formErrors[0] ?? 'Check the settings fields.',
+    }
   }
 
   try {

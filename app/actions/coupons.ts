@@ -3,7 +3,7 @@
 import { and, eq, ne, sql } from 'drizzle-orm'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
-import { requireAdmin } from '@/lib/admin-auth'
+import { adminGuard } from '@/lib/admin-auth'
 import { db } from '@/lib/db'
 import { couponRedemptions, coupons, orders } from '@/lib/db/schema'
 import { evaluateCoupon, normalizeCouponCode, type CouponDefinition } from '@/lib/coupons'
@@ -72,7 +72,8 @@ export async function validateCoupon(input: {
 }
 
 export async function saveCoupon(input: unknown) {
-  await requireAdmin()
+  const guard = await adminGuard()
+  if (!guard.ok) throw new Error(guard.error)
   const value = couponSchema.parse(input)
   const { id, ...fields } = value
   const code = normalizeCouponCode(value.code)
@@ -90,7 +91,8 @@ export async function saveCoupon(input: unknown) {
 }
 
 export async function deleteCoupon(id: string) {
-  await requireAdmin()
+  const guard = await adminGuard()
+  if (!guard.ok) throw new Error(guard.error)
   await db.delete(coupons).where(eq(coupons.id, z.string().uuid().parse(id)))
   revalidatePath('/admin')
 }
