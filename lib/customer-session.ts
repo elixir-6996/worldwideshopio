@@ -30,6 +30,10 @@ function secret() {
   return ephemeralSecret
 }
 
+function isFrameworkError(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'digest' in error
+}
+
 function sign(email: string) {
   return createHmac('sha256', secret()).update(email).digest('base64url')
 }
@@ -58,6 +62,9 @@ export async function getCustomerEmail() {
     if (signature.length !== expected.length) return null
     return timingSafeEqual(Buffer.from(signature), Buffer.from(expected)) ? email : null
   } catch (error) {
+    // Next.js signals control flow (dynamic usage, redirects, notFound) with
+    // errors carrying a `digest`. Those must propagate untouched.
+    if (isFrameworkError(error)) throw error
     // A malformed or stale cookie must never take down the page that reads it.
     console.warn('[v0] Could not read customer session:', error)
     return null

@@ -55,6 +55,7 @@ const config = [
       '**/*.test.{ts,tsx}',
       '**/*.spec.{ts,tsx}',
       'e2e/**',
+      'scripts/**',
       'lib/logger.ts',
     ],
     rules: {

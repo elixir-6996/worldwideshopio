@@ -29,6 +29,8 @@ type AppliedPromo = {
   message: string
   discount: number
   shippingSavings: number
+  /** Subtotal the coupon was validated against; edits invalidate the coupon. */
+  validatedSubtotal: number
 }
 
 function lineKey(item: CartItem) {
@@ -40,7 +42,7 @@ export function CartClient({ cart, rates }: { cart: CartItem[]; rates: ShippingR
   const { setCount } = useCart()
   const [pending, startTransition] = useTransition()
   const [promoCode, setPromoCode] = useState('')
-  const [appliedPromo, setAppliedPromo] = useState<AppliedPromo | null>(null)
+  const [promo, setPromo] = useState<AppliedPromo | null>(null)
   const [promoError, setPromoError] = useState('')
 
   const subtotal = useMemo(() => cartSubtotal(cart), [cart])
@@ -51,9 +53,7 @@ export function CartClient({ cart, rates }: { cart: CartItem[]; rates: ShippingR
   }, [cart, setCount])
 
   // A coupon validated against an older subtotal must not survive cart edits.
-  useEffect(() => {
-    setAppliedPromo(null)
-  }, [subtotal])
+  const appliedPromo = promo && promo.validatedSubtotal === subtotal ? promo : null
 
   const run = (action: () => Promise<{ count: number; error?: string }>) => {
     startTransition(async () => {
@@ -77,15 +77,16 @@ export function CartClient({ cart, rates }: { cart: CartItem[]; rates: ShippingR
   const applyPromo = async () => {
     const result = await validateCoupon({ code: promoCode, subtotal, shipping: shippingBase })
     if (result.valid && result.code) {
-      setAppliedPromo({
+      setPromo({
         code: result.code,
         message: result.message,
         discount: result.discount,
         shippingSavings: result.shippingSavings,
+        validatedSubtotal: subtotal,
       })
       setPromoError('')
     } else {
-      setAppliedPromo(null)
+      setPromo(null)
       setPromoError(result.message)
     }
   }
@@ -157,7 +158,9 @@ export function CartClient({ cart, rates }: { cart: CartItem[]; rates: ShippingR
                       >
                         {item.product.name}
                       </Link>
-                      <p className="text-xs text-muted-foreground mt-0.5">{item.product.category}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {item.product.category}
+                      </p>
                       <div className="flex items-center gap-2 mt-1">
                         {item.size && (
                           <Badge
@@ -326,9 +329,7 @@ export function CartClient({ cart, rates }: { cart: CartItem[]; rates: ShippingR
                       shipping
                     </p>
                   )}
-                  <p className="text-xs text-muted-foreground">
-                    Taxes are calculated at checkout.
-                  </p>
+                  <p className="text-xs text-muted-foreground">Taxes are calculated at checkout.</p>
                 </div>
 
                 <Separator className="bg-border my-5" />

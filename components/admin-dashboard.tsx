@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {
@@ -13,21 +13,18 @@ import {
   TrendingUp,
   TrendingDown,
   DollarSign,
-  Eye,
   ChevronRight,
   Plus,
-  Search,
-  MoreHorizontal,
   ArrowUpRight,
   TicketPercent,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
-import { MOCK_ADMIN, type Order } from '@/lib/store'
+import { signOutCustomer } from '@/app/actions/customer'
+import { type Order } from '@/lib/store'
 import { AdminCoupons, type AdminCoupon } from '@/components/admin-coupons'
 import { AdminProducts, type AdminProduct } from '@/components/admin-products'
 import { AdminSettings, type AdminStoreSettings } from '@/components/admin-settings'
@@ -65,6 +62,7 @@ export function AdminDashboard({
   products,
   settings,
   displayDate,
+  adminEmail,
 }: {
   orders: Order[]
   customers: AdminCustomer[]
@@ -72,8 +70,17 @@ export function AdminDashboard({
   products: AdminProduct[]
   settings: AdminStoreSettings
   displayDate: string
+  adminEmail: string
 }) {
   const [activeTab, setActiveTab] = useState<Tab>('overview')
+  const [signingOut, startSignOut] = useTransition()
+  const adminName = adminEmail.split('@')[0].replace(/[._-]+/g, ' ')
+  const adminInitials = adminName
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('')
 
   const totalRevenue = orders.reduce((a, o) => a + o.total, 0)
 
@@ -124,19 +131,19 @@ export function AdminDashboard({
           <div className="flex items-center gap-3">
             <Avatar className="h-8 w-8 border border-border">
               <AvatarFallback className="bg-brand/20 text-brand text-xs font-semibold">
-                {MOCK_ADMIN.name
-                  .split(' ')
-                  .map((n) => n[0])
-                  .join('')}
+                {adminInitials}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-foreground truncate">{MOCK_ADMIN.name}</p>
-              <p className="text-xs text-muted-foreground truncate">{MOCK_ADMIN.email}</p>
+              <p className="text-xs font-medium text-foreground truncate capitalize">{adminName}</p>
+              <p className="text-xs text-muted-foreground truncate">{adminEmail}</p>
             </div>
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Sign out"
+              disabled={signingOut}
+              onClick={() => startSignOut(() => void signOutCustomer())}
               className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
             >
               <LogOut className="h-3.5 w-3.5" />
@@ -157,6 +164,7 @@ export function AdminDashboard({
             <Button
               size="sm"
               className="bg-foreground text-background hover:bg-foreground/80 gap-2 text-xs"
+              onClick={() => setActiveTab('products')}
             >
               <Plus className="h-3.5 w-3.5" />
               Add Product
@@ -187,7 +195,7 @@ export function AdminDashboard({
                   },
                   {
                     label: 'Products',
-                    value: PRODUCTS.length.toString(),
+                    value: products.length.toString(),
                     icon: Package,
                     change: '+2 this week',
                     up: true,

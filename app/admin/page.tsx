@@ -2,6 +2,7 @@ import { desc } from 'drizzle-orm'
 import { redirect } from 'next/navigation'
 import { AdminDashboard } from '@/components/admin-dashboard'
 import { isAdmin } from '@/lib/admin-auth'
+import { getCustomerEmail } from '@/lib/customer-session'
 import { db, safeQuery } from '@/lib/db'
 import { coupons as couponsTable, orders as ordersTable } from '@/lib/db/schema'
 import { getAllProductRows, getStoreSettings, toProduct } from '@/lib/products'
@@ -26,7 +27,8 @@ function toOrderStatus(status: string): Order['status'] {
 }
 
 export default async function AdminPage() {
-  if (!(await isAdmin())) redirect('/login')
+  const adminEmail = await getCustomerEmail()
+  if (!adminEmail || !(await isAdmin())) redirect('/login')
   const displayDate = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -133,6 +135,7 @@ export default async function AdminPage() {
         expressShippingRate: settings.expressShippingRate,
       }}
       displayDate={displayDate}
+      adminEmail={adminEmail}
     />
   )
 }
