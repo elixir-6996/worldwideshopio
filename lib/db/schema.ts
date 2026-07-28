@@ -10,6 +10,51 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core'
 
+/**
+ * Storefront catalog. This table is the source of truth for products:
+ * the storefront reads from it, and the admin dashboard writes to it.
+ * Prices are stored in cents to avoid floating point drift.
+ */
+export const products = pgTable(
+  'products',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    slug: text('slug').notNull().unique(),
+    name: text('name').notNull(),
+    description: text('description').notNull().default(''),
+    category: text('category').notNull(),
+    priceCents: integer('price_cents').notNull(),
+    compareAtCents: integer('compare_at_cents'),
+    sku: text('sku'),
+    inventory: integer('inventory').notNull().default(0),
+    status: text('status').notNull().default('draft'),
+    badge: text('badge'),
+    images: jsonb('images').$type<string[]>().notNull().default([]),
+    sizes: jsonb('sizes').$type<string[]>().notNull().default([]),
+    colors: jsonb('colors').$type<string[]>().notNull().default([]),
+    rating: integer('rating').notNull().default(0),
+    reviewCount: integer('review_count').notNull().default(0),
+    featured: boolean('featured').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    index('products_status_idx').on(table.status),
+    index('products_category_idx').on(table.category),
+    index('products_created_at_idx').on(table.createdAt),
+  ],
+)
+
+/**
+ * Single-row key/value store for admin settings, keyed by section
+ * ('store', 'shipping', 'payments', ...) so new sections don't need migrations.
+ */
+export const storeSettings = pgTable('store_settings', {
+  section: text('section').primaryKey(),
+  value: jsonb('value').$type<Record<string, unknown>>().notNull().default({}),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+})
+
 export const checkoutAddresses = pgTable('checkout_addresses', {
   id: uuid('id').defaultRandom().primaryKey(),
   checkoutToken: text('checkout_token').notNull(),
