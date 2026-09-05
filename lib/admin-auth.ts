@@ -26,8 +26,20 @@ export async function isAdmin() {
   return Boolean(email && adminEmails().has(email.toLowerCase()))
 }
 
-export async function requireAdmin() {
+export const ADMIN_SESSION_EXPIRED = 'Your admin session is no longer valid. Please sign in again.'
+
+/**
+ * Non-throwing guard for server actions.
+ *
+ * Actions return a result object to the client, so an expired or missing
+ * session should surface as an inline message instead of an unhandled error.
+ */
+export async function adminGuard(): Promise<
+  { ok: true; email: string } | { ok: false; error: string }
+> {
   const email = await getCustomerEmail()
-  if (!email || !adminEmails().has(email.toLowerCase())) throw new Error('Unauthorized')
-  return email
+  if (!email || !adminEmails().has(email.toLowerCase())) {
+    return { ok: false, error: ADMIN_SESSION_EXPIRED }
+  }
+  return { ok: true, email }
 }

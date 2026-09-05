@@ -10,12 +10,20 @@ const COOKIE_NAME = 'luxe_customer'
 /**
  * Fallback signing key used only when CUSTOMER_SESSION_SECRET is absent.
  *
- * Sessions signed with it are still tamper-proof for the lifetime of the
- * process, but they are NOT portable across deploys/instances. Set
- * CUSTOMER_SESSION_SECRET in the environment for real durable sessions.
+ * It is derived from values that stay constant for a given deployment (the
+ * database URL / auth secret), so cookies keep verifying across server
+ * restarts and module reloads instead of silently logging everyone out. A
+ * random key is used only when nothing stable exists at all. Set
+ * CUSTOMER_SESSION_SECRET for a properly rotated, portable secret.
  */
-const ephemeralSecret = randomBytes(32).toString('base64url')
+const randomFallback = randomBytes(32).toString('base64url')
 let warnedAboutFallback = false
+
+function derivedFallbackSecret() {
+  const material = [env.AUTH_SECRET, env.DATABASE_URL].filter(Boolean).join('|')
+  if (!material) return randomFallback
+  return createHmac('sha256', 'luxe-customer-session-fallback').update(material).digest('base64url')
+}
 
 function secret() {
   const value = env.CUSTOMER_SESSION_SECRET
@@ -24,10 +32,10 @@ function secret() {
   if (!warnedAboutFallback) {
     warnedAboutFallback = true
     console.warn(
-      '[v0] CUSTOMER_SESSION_SECRET is not set - using an in-memory signing key. Sign-in works, but sessions reset when the server restarts.',
+      '[v0] CUSTOMER_SESSION_SECRET is not set - deriving a signing key from the deployment config. Set CUSTOMER_SESSION_SECRET for a dedicated, rotatable secret.',
     )
   }
-  return ephemeralSecret
+  return derivedFallbackSecret()
 }
 
 function sign(email: string) {
